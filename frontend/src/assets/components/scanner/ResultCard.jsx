@@ -10,11 +10,6 @@ export default function ResultCard(){
         <strong> MH12AB1234 </strong>
       </p>
 
-      <p>
-        Confidence:
-        <strong> 96% </strong>
-      </p>
-
     </div>
   )
 
