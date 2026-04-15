@@ -1,41 +1,46 @@
-# database_manager.py
+import os
+from dotenv import load_dotenv
 import mysql.connector
+from mysql.connector import Error
 
+load_dotenv()
 
 class DatabaseManager:
-    def __init__(
-        self,
-        host="127.0.0.1",
-        user="simplydb",
-        password="Comp550SWE!",
-        database="simply_park",
-        port=3306,
-    ):
-        self.conn = mysql.connector.connect(
-            host=host,
-            user=user,
-            password=password,
-            database=database,
-            port=port,
-            ssl_disabled=True,  # avoid SSL.wrap_socket issues on this setup
-        )
-        self._init_table()
+    def __init__(self):
+        try:
+            self.conn = mysql.connector.connect(
+                host=os.getenv("DB_HOST"),
+                port=int(os.getenv("DB_PORT")),
+                user=os.getenv("DB_USER"),
+                password=os.getenv("DB_PASSWORD"),
+                database=os.getenv("DB_NAME"),
+            )
+
+            if self.conn.is_connected():
+                print("Connected to database")
+                self._init_table()
+            else:
+                raise Exception("Connection failed")
+
+        except Error as e:
+            raise Exception(f"Database connection failed: {e}")
 
     def _init_table(self):
         cur = self.conn.cursor()
-        # NOTE: plate is NOT UNIQUE so duplicates are allowed
-        cur.execute(
-            """
-            CREATE TABLE IF NOT EXISTS plates (
-                id INT AUTO_INCREMENT PRIMARY KEY,
-                plate VARCHAR(32) NOT NULL,
-                source_file VARCHAR(512),
-                timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        try:
+            cur.execute(
+                """
+                CREATE TABLE IF NOT EXISTS plates (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    plate VARCHAR(32) NOT NULL,
+                    source_file VARCHAR(512),
+                    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+                """
             )
-            """
-        )
-        self.conn.commit()
-        cur.close()
+            self.conn.commit()
+        finally:
+            cur.close()
 
     def insert_plate(self, plate: str, source_file: str) -> bool:
         plate = (plate or "").strip().upper()
@@ -50,25 +55,31 @@ class DatabaseManager:
             )
             self.conn.commit()
             return True
+        except Error as e:
+            print(f"Insert failed: {e}")
+            return False
         finally:
             cur.close()
 
     def fetch_all(self, limit=None):
         sql = "SELECT id, plate, source_file, timestamp FROM plates ORDER BY timestamp DESC"
         params = ()
+
         if isinstance(limit, int) and limit > 0:
             sql += " LIMIT %s"
             params = (limit,)
 
         cur = self.conn.cursor()
-        cur.execute(sql, params)
-        rows = cur.fetchall()
-        cur.close()
-        return rows
+        try:
+            cur.execute(sql, params)
+            return cur.fetchall()
+        finally:
+            cur.close()
 
     def close(self):
         try:
-            self.conn.close()
+            if self.conn.is_connected():
+                self.conn.close()
         except Exception:
             pass
 
@@ -77,3 +88,11 @@ class DatabaseManager:
 
     def __exit__(self, exc_type, exc, tb):
         self.close()
+
+
+if __name__ == "__main__":
+    db = DatabaseManager()
+    db.insert_plate("ABC123", "test.jpg")
+    db.insert_plate("XYZ789", "parking_lot.png")
+    print(db.fetch_all(10))
+    db.close()
