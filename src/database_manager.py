@@ -88,11 +88,3 @@ class DatabaseManager:
 
     def __exit__(self, exc_type, exc, tb):
         self.close()
-
-
-if __name__ == "__main__":
-    db = DatabaseManager()
-    db.insert_plate("ABC123", "test.jpg")
-    db.insert_plate("XYZ789", "parking_lot.png")
-    print(db.fetch_all(10))
-    db.close()
