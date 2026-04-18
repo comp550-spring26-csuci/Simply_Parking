@@ -184,9 +184,9 @@ class DatabaseManager:
         cur = self.conn.cursor()
         try:
             cur.execute(
-                "INSERT INTO plates (plate, source_file) VALUES (%s, %s)",
+                "INSERT INTO plates (plate, source_file, timestamp) VALUES (%s, %s, NOW())",
                 (plate, source_file),
-            )
+            )    
             self.conn.commit()
             return True
         except Error as e:
