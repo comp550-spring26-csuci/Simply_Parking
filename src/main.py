@@ -15,7 +15,11 @@ def main():
         return 2
 
     with DatabaseManager() as db:
-        inserted = db.insert_plate(plate, image_path)
+        inserted = db.insert_plate(
+        plate,
+        image_path,
+        actor_username="ocr_system",
+        )
 
     print(f"{'Saved' if inserted else 'Failed to save'} plate: {plate} (source: {image_path})")
     return 0
