@@ -27,6 +27,7 @@ class DatabaseManager:
                 self._init_users_table()
                 self._init_audit_logs_table()
                 self._init_vehicles_table()
+                self._init_issues_table()
                 self._seed_default_admin()
             else:
                 raise Exception("Connection failed")
@@ -391,6 +392,128 @@ class DatabaseManager:
             return cur.rowcount > 0
         except Error as e:
             print(f"Delete vehicle failed: {e}")
+            return False
+        finally:
+            cur.close()
+    def _init_issues_table(self):
+        cur = self.conn.cursor()
+        try:
+            cur.execute(
+                """
+                CREATE TABLE IF NOT EXISTS issues (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    reported_by_user_id INT NOT NULL,
+                    reported_by_username VARCHAR(64) NOT NULL,
+                    location VARCHAR(128) NOT NULL,
+                    category VARCHAR(64) NOT NULL,
+                    priority VARCHAR(32) NOT NULL,
+                    description TEXT NOT NULL,
+                    status VARCHAR(32) NOT NULL,
+                    created_at DATETIME NOT NULL,
+                    FOREIGN KEY (reported_by_user_id) REFERENCES users(id)
+                        ON DELETE CASCADE
+                )
+                """
+            )
+            self.conn.commit()
+        finally:
+            cur.close()
+
+    def create_issue(self, user_id: int, username: str, location: str, category: str, priority: str, description: str) -> bool:
+        location = (location or "").strip()
+        category = (category or "").strip()
+        priority = (priority or "").strip()
+        description = (description or "").strip()
+
+        if not user_id or not username or not location or not category or not priority or not description:
+            return False
+
+        cur = self.conn.cursor()
+        try:
+            cur.execute(
+                """
+                INSERT INTO issues (
+                    reported_by_user_id,
+                    reported_by_username,
+                    location,
+                    category,
+                    priority,
+                    description,
+                    status,
+                    created_at
+                )
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                """,
+                (
+                    user_id,
+                    username,
+                    location,
+                    category,
+                    priority,
+                    description,
+                    "Open",
+                    self._now_str(),
+                ),
+            )
+            self.conn.commit()
+            return True
+        except Error as e:
+            print(f"Create issue failed: {e}")
+            return False
+        finally:
+            cur.close()
+
+    def fetch_issues(self, limit=200):
+        cur = self.conn.cursor()
+        try:
+            cur.execute(
+                """
+                SELECT id, reported_by_username, location, category, priority, status, description, created_at
+                FROM issues
+                ORDER BY created_at DESC
+                LIMIT %s
+                """,
+                (limit,),
+            )
+            return cur.fetchall()
+        finally:
+            cur.close()
+
+    def fetch_issues_by_user(self, user_id: int, limit=200):
+        cur = self.conn.cursor()
+        try:
+            cur.execute(
+                """
+                SELECT id, reported_by_username, location, category, priority, status, description, created_at
+                FROM issues
+                WHERE reported_by_user_id = %s
+                ORDER BY created_at DESC
+                LIMIT %s
+                """,
+                (user_id, limit),
+            )
+            return cur.fetchall()
+        finally:
+            cur.close()
+
+    def update_issue_status(self, issue_id: int, status: str) -> bool:
+        allowed = {"Open", "In Progress", "Resolved"}
+        status = (status or "").strip()
+        if not issue_id or not status:
+            return False
+        if status not in allowed:
+            return False
+
+        cur = self.conn.cursor()
+        try:
+            cur.execute(
+                "UPDATE issues SET status = %s WHERE id = %s",
+                (status, issue_id),
+            )
+            self.conn.commit()
+            return cur.rowcount > 0
+        except Error as e:
+            print(f"Update issue status failed: {e}")
             return False
         finally:
             cur.close()

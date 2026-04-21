@@ -130,6 +130,7 @@ class PlateApp:
             self.add_nav_button(nav, "Plate Records", self.show_plate_records)
             self.add_nav_button(nav, "Add Plate", self.show_add_plate)
             self.add_nav_button(nav, "Manage Users", self.show_manage_users)
+            self.add_nav_button(nav, "Manage Issues", self.show_manage_issues)
             self.add_nav_button(nav, "Logs & Reports", self.show_logs_reports)
             self.add_nav_button(nav, "System Settings", self.show_system_settings)
 
@@ -137,6 +138,7 @@ class PlateApp:
             self.add_nav_button(nav, "Customer History", self.show_plate_records)
             self.add_nav_button(nav, "Add Plate", self.show_add_plate)
             self.add_nav_button(nav, "Manage Accounts", self.show_manage_users_readonly)
+            self.add_nav_button(nav, "Manage Issues", self.show_manage_issues)
             self.add_nav_button(nav, "Reset Password", self.show_reset_password)
             self.add_nav_button(nav, "Logs", self.show_logs_reports)
 
@@ -411,6 +413,10 @@ class PlateApp:
     def show_manage_users(self):
         self.clear_content()
 
+        if self.current_user["role"] not in {"admin", "support_agent"}:
+            messagebox.showerror("Access Denied", "You do not have permission to manage users.")
+            return
+
         top = tk.Frame(self.content_frame, padx=10, pady=10)
         top.pack(fill="x")
 
@@ -590,8 +596,152 @@ class PlateApp:
 
     def show_report_issue(self):
         self.clear_content()
-        tk.Label(self.content_frame, text="Report Parking Issue", font=("Arial", 16, "bold")).pack(pady=20)
-        tk.Label(self.content_frame, text="Placeholder for officer issue reporting").pack()
+
+        top = tk.Frame(self.content_frame, padx=10, pady=10)
+        top.pack(fill="x")
+
+        tk.Label(top, text="Report Parking Issue", font=("Arial", 16, "bold")).pack(side="left")
+        tk.Button(top, text="Refresh", command=self.show_report_issue).pack(side="right")
+
+        form_frame = tk.Frame(self.content_frame, padx=20, pady=10)
+        form_frame.pack(fill="x", anchor="nw")
+
+        tk.Label(form_frame, text="Location").grid(row=0, column=0, sticky="e", pady=5)
+        location_entry = tk.Entry(form_frame, width=35)
+        location_entry.grid(row=0, column=1, padx=5, pady=5)
+        location_entry.insert(0, "Parking Structure A")
+
+        tk.Label(form_frame, text="Category").grid(row=1, column=0, sticky="e", pady=5)
+        category_combo = ttk.Combobox(
+            form_frame,
+            width=32,
+            state="readonly",
+            values=[
+                "Broken Gate",
+                "Lighting Issue",
+                "Blocked Space",
+                "Unauthorized Vehicle",
+                "Damaged Signage",
+                "Safety Hazard",
+                "Other",
+            ],
+        )
+        category_combo.grid(row=1, column=1, padx=5, pady=5)
+        category_combo.set("Broken Gate")
+
+        tk.Label(form_frame, text="Priority").grid(row=2, column=0, sticky="e", pady=5)
+        priority_combo = ttk.Combobox(
+            form_frame,
+            width=32,
+            state="readonly",
+            values=["Low", "Medium", "High", "Urgent"],
+        )
+        priority_combo.grid(row=2, column=1, padx=5, pady=5)
+        priority_combo.set("Medium")
+
+        tk.Label(form_frame, text="Description").grid(row=3, column=0, sticky="ne", pady=5)
+        description_text = tk.Text(form_frame, width=45, height=5)
+        description_text.grid(row=3, column=1, padx=5, pady=5)
+
+        def submit_issue():
+            location = location_entry.get().strip()
+            category = category_combo.get().strip()
+            priority = priority_combo.get().strip()
+            description = description_text.get("1.0", tk.END).strip()
+
+            if not location or not category or not priority or not description:
+                messagebox.showwarning("Input Error", "All fields are required.")
+                return
+
+            ok = self.db.create_issue(
+                user_id=self.current_user["id"],
+                username=self.current_user["username"],
+                location=location,
+                category=category,
+                priority=priority,
+                description=description,
+            )
+
+            if ok:
+                self.db.add_log(
+                    event_type="issue_reported",
+                    details=f"Location={location}, category={category}, priority={priority}",
+                    user_id=self.current_user["id"],
+                    username=self.current_user["username"],
+                )
+                messagebox.showinfo("Success", "Issue reported successfully.")
+                self.show_report_issue()
+            else:
+                messagebox.showerror("Error", "Could not submit issue.")
+
+        tk.Button(form_frame, text="Submit Issue", command=submit_issue).grid(row=4, column=0, columnspan=2, pady=10)
+
+        filter_frame = tk.Frame(self.content_frame, padx=10, pady=5)
+        filter_frame.pack(fill="x")
+
+        tk.Label(filter_frame, text="View").pack(side="left")
+        view_combo = ttk.Combobox(
+            filter_frame,
+            width=18,
+            state="readonly",
+            values=["My Issues", "All Issues"],
+        )
+        view_combo.pack(side="left", padx=8)
+        view_combo.set("My Issues")
+
+        table_frame = tk.Frame(self.content_frame, padx=10, pady=10)
+        table_frame.pack(fill="both", expand=True)
+
+        columns = ("id", "reported_by", "location", "category", "priority", "status", "description", "created_at")
+        tree = ttk.Treeview(table_frame, columns=columns, show="headings")
+
+        headings = {
+            "id": "ID",
+            "reported_by": "Reported By",
+            "location": "Location",
+            "category": "Category",
+            "priority": "Priority",
+            "status": "Status",
+            "description": "Description",
+            "created_at": "Created At",
+        }
+
+        for col in columns:
+            tree.heading(col, text=headings[col])
+
+        tree.column("id", width=50, anchor="center")
+        tree.column("reported_by", width=110, anchor="center")
+        tree.column("location", width=140, anchor="center")
+        tree.column("category", width=130, anchor="center")
+        tree.column("priority", width=90, anchor="center")
+        tree.column("status", width=90, anchor="center")
+        tree.column("description", width=280, anchor="w")
+        tree.column("created_at", width=160, anchor="center")
+
+        scrollbar = ttk.Scrollbar(table_frame, orient="vertical", command=tree.yview)
+        tree.configure(yscrollcommand=scrollbar.set)
+
+        tree.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+
+        def load_issues():
+            for item in tree.get_children():
+                tree.delete(item)
+
+            try:
+                if view_combo.get() == "All Issues":
+                    rows = self.db.fetch_issues()
+                else:
+                    rows = self.db.fetch_issues_by_user(self.current_user["id"])
+
+                for row in rows:
+                    tree.insert("", tk.END, values=row)
+            except Exception as e:
+                messagebox.showerror("Error", str(e))
+
+        view_combo.bind("<<ComboboxSelected>>", lambda event: load_issues())
+
+        load_issues()
 
     def show_my_vehicle(self):
         self.clear_content()
@@ -728,6 +878,126 @@ class PlateApp:
         self.clear_content()
         tk.Label(self.content_frame, text="Current Parking Session", font=("Arial", 16, "bold")).pack(pady=20)
         tk.Label(self.content_frame, text="Placeholder for pay-as-you-go session tracking").pack()
+
+    def show_manage_issues(self):
+        self.clear_content()
+
+        if self.current_user["role"] not in {"admin", "support_agent"}:
+            messagebox.showerror("Access Denied", "You do not have permission to manage issues.")
+            return
+
+        top = tk.Frame(self.content_frame, padx=10, pady=10)
+        top.pack(fill="x")
+
+        tk.Label(top, text="Manage Issues", font=("Arial", 16, "bold")).pack(side="left")
+        tk.Button(top, text="Refresh", command=self.show_manage_issues).pack(side="right")
+
+        table_frame = tk.Frame(self.content_frame, padx=10, pady=10)
+        table_frame.pack(fill="both", expand=True)
+
+        columns = ("id", "reported_by", "location", "category", "priority", "status", "description", "created_at")
+        tree = ttk.Treeview(table_frame, columns=columns, show="headings")
+
+        headings = {
+            "id": "ID",
+            "reported_by": "Reported By",
+            "location": "Location",
+            "category": "Category",
+            "priority": "Priority",
+            "status": "Status",
+            "description": "Description",
+            "created_at": "Created At",
+        }
+
+        for col in columns:
+            tree.heading(col, text=headings[col])
+
+        tree.column("id", width=50, anchor="center")
+        tree.column("reported_by", width=110, anchor="center")
+        tree.column("location", width=140, anchor="center")
+        tree.column("category", width=130, anchor="center")
+        tree.column("priority", width=90, anchor="center")
+        tree.column("status", width=100, anchor="center")
+        tree.column("description", width=280, anchor="w")
+        tree.column("created_at", width=160, anchor="center")
+
+        scrollbar = ttk.Scrollbar(table_frame, orient="vertical", command=tree.yview)
+        tree.configure(yscrollcommand=scrollbar.set)
+
+        tree.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+
+        controls = tk.Frame(self.content_frame, padx=10, pady=10)
+        controls.pack(fill="x")
+
+        tk.Label(controls, text="Selected Issue ID").grid(row=0, column=0, sticky="e", pady=4)
+        issue_id_label = tk.Label(controls, text="None", width=10, anchor="w")
+        issue_id_label.grid(row=0, column=1, sticky="w", padx=5)
+
+        tk.Label(controls, text="New Status").grid(row=0, column=2, sticky="e", pady=4)
+        status_combo = ttk.Combobox(
+            controls,
+            width=20,
+            state="readonly",
+            values=["Open", "In Progress", "Resolved"],
+        )
+        status_combo.grid(row=0, column=3, padx=5, pady=4)
+        status_combo.set("Open")
+
+        selected_issue_id = {"value": None}
+
+        def refresh_table():
+            for item in tree.get_children():
+                tree.delete(item)
+            rows = self.db.fetch_issues()
+            for row in rows:
+                tree.insert("", tk.END, values=row)
+
+        def on_row_select(event):
+            selected = tree.selection()
+            if not selected:
+                return
+
+            values = tree.item(selected[0], "values")
+            if not values:
+                return
+
+            issue_id = values[0]
+            current_status = values[5]
+
+            selected_issue_id["value"] = issue_id
+            issue_id_label.config(text=str(issue_id))
+            status_combo.set(current_status)
+
+        def update_status():
+            issue_id = selected_issue_id["value"]
+            new_status = status_combo.get().strip()
+
+            if not issue_id:
+                messagebox.showwarning("Selection Error", "Select an issue first.")
+                return
+
+            ok = self.db.update_issue_status(int(issue_id), new_status)
+            if ok:
+                self.db.add_log(
+                    event_type="issue_status_updated",
+                    details=f"Issue ID={issue_id}, new_status={new_status}",
+                    user_id=self.current_user["id"],
+                    username=self.current_user["username"],
+                )
+                messagebox.showinfo("Success", "Issue status updated.")
+                refresh_table()
+            else:
+                messagebox.showerror("Error", "Could not update issue status.")
+
+        tk.Button(controls, text="Update Status", command=update_status).grid(row=0, column=4, padx=10, pady=4)
+
+        tree.bind("<<TreeviewSelect>>", on_row_select)
+
+        try:
+            refresh_table()
+        except Exception as e:
+            messagebox.showerror("Error", str(e))
 
     def show_pay_exit(self):
         self.clear_content()
