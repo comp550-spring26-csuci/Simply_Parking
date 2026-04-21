@@ -7,7 +7,6 @@ from mysql.connector import Error
 
 load_dotenv()
 
-
 class DatabaseManager:
     def __init__(self):
         try:
@@ -18,7 +17,6 @@ class DatabaseManager:
                 password=os.getenv("DB_PASSWORD"),
                 database=os.getenv("DB_NAME"),
             )
-
             self.conn.autocommit = True
 
             if self.conn.is_connected():
