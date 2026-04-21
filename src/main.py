@@ -1,25 +1,44 @@
-import sys
-from plate_reader import ocr_plate
+from capture import capture_image
+from plate_reader import process_one_image
 from database_manager import DatabaseManager
 
+
 def main():
-    if len(sys.argv) != 2:
-        print("Usage: python3 main.py path/to/image.jpg")
-        return 1
+    image_path = capture_image()
 
-    image_path = sys.argv[1]
-    plate = ocr_plate(image_path)
+    if image_path is None:
+        print("No image captured.")
+        return
 
-    if not plate:
-        print("No plate detected.")
-        return 2
+    outputs = process_one_image(
+        image_path,
+        target_width=900,
+        template_dir="templates_normalized"
+    )
 
-    with DatabaseManager() as db:
-        inserted = db.insert_plate(plate, image_path)
+    final_plate_text = outputs.get("final_plate_text", "").strip()
+    if not final_plate_text:
+        final_plate_text = outputs.get("recognized_text", "").strip()
 
-    print(f"{'Saved' if inserted else 'Failed to save'} plate: {plate} (source: {image_path})")
-    return 0
+    print(f"Recognized text: {outputs.get('recognized_text', '')}")
+    print(f"Final plate text: {final_plate_text}")
+
+    if not final_plate_text:
+        print("No plate text available to insert into database.")
+        return
+
+    try:
+        with DatabaseManager() as db:
+            ok = db.insert_plate(final_plate_text, image_path)
+
+        if ok:
+            print(f"Inserted into database: {final_plate_text}")
+        else:
+            print("Database insert failed.")
+
+    except Exception as e:
+        print(f"Database error: {e}")
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    main()

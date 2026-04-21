@@ -1,22 +1,34 @@
 import os
 import hashlib
-from dotenv import load_dotenv
+# from dotenv import load_dotenv
 import mysql.connector
 from mysql.connector import Error
 
-load_dotenv()
+# load_dotenv()
+
+#DB_HOST = "137.184.46.194"
+#DB_NAME = "crsmcike_simply_park"
+#DB_USER = "crsmcike_simplydb"
+#DB_PASS = "COMP550SWE!"
+#DB_PORT = 3306
 
 
 class DatabaseManager:
     def __init__(self):
         try:
             self.conn = mysql.connector.connect(
-                host=os.getenv("DB_HOST"),
-                port=int(os.getenv("DB_PORT")),
-                user=os.getenv("DB_USER"),
-                password=os.getenv("DB_PASSWORD"),
-                database=os.getenv("DB_NAME"),
-            )
+                host="137.184.46.194",
+                user="crsmcike_simplydb",
+                password="COMP550SWE!",
+                database="crsmcike_simply_park",
+                port=3306,
+#                host=os.getenv("DB_HOST"),
+#                port=int(os.getenv("DB_PORT")),
+#                user=os.getenv("DB_USER"),
+#                password=os.getenv("DB_PASSWORD"),
+#                database=os.getenv("DB_NAME"),
+            ) 
+            self.conn.autocommit = True
 
             if self.conn.is_connected():
                 print("Connected to database")
@@ -172,9 +184,9 @@ class DatabaseManager:
         cur = self.conn.cursor()
         try:
             cur.execute(
-                "INSERT INTO plates (plate, source_file) VALUES (%s, %s)",
+                "INSERT INTO plates (plate, source_file, timestamp) VALUES (%s, %s, NOW())",
                 (plate, source_file),
-            )
+            )    
             self.conn.commit()
             return True
         except Error as e:
