@@ -1,45 +1,96 @@
 import os
 import hashlib
-# from dotenv import load_dotenv
+from datetime import datetime
+from dotenv import load_dotenv
 import mysql.connector
 from mysql.connector import Error
 
-# load_dotenv()
-
-#DB_HOST = "137.184.46.194"
-#DB_NAME = "crsmcike_simply_park"
-#DB_USER = "crsmcike_simplydb"
-#DB_PASS = "COMP550SWE!"
-#DB_PORT = 3306
-
+load_dotenv()
 
 class DatabaseManager:
     def __init__(self):
         try:
             self.conn = mysql.connector.connect(
-                host="137.184.46.194",
-                user="crsmcike_simplydb",
-                password="COMP550SWE!",
-                database="crsmcike_simply_park",
-                port=3306,
-#                host=os.getenv("DB_HOST"),
-#                port=int(os.getenv("DB_PORT")),
-#                user=os.getenv("DB_USER"),
-#                password=os.getenv("DB_PASSWORD"),
-#                database=os.getenv("DB_NAME"),
-            ) 
+                host=os.getenv("DB_HOST"),
+                port=int(os.getenv("DB_PORT")),
+                user=os.getenv("DB_USER"),
+                password=os.getenv("DB_PASSWORD"),
+                database=os.getenv("DB_NAME"),
+            )
             self.conn.autocommit = True
 
             if self.conn.is_connected():
                 print("Connected to database")
                 self._init_table()
                 self._init_users_table()
+                self._init_audit_logs_table()
+                self._init_vehicles_table()
+                self._init_issues_table()
                 self._seed_default_admin()
             else:
                 raise Exception("Connection failed")
 
         except Error as e:
             raise Exception(f"Database connection failed: {e}")
+
+    def _now_str(self) -> str:
+        return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    def update_plate_entry(self, record_id: int, plate: str, source_file: str = "", actor_user_id=None, actor_username=None) -> bool:
+        plate = (plate or "").strip().upper()
+        source_file = (source_file or "").strip()
+
+        if not record_id or not plate:
+            return False
+
+        cur = self.conn.cursor()
+        try:
+            cur.execute(
+                """
+                UPDATE plates
+                SET plate = %s, source_file = %s
+                WHERE id = %s
+                """,
+                (plate, source_file, record_id),
+            )
+
+            if cur.rowcount > 0:
+                self.add_log(
+                    event_type="plate_entry_updated",
+                    details=f"Record ID={record_id}, plate={plate}, source_file={source_file}",
+                    user_id=actor_user_id,
+                    username=actor_username,
+                )
+                return True
+            return False
+        except Error as e:
+            print(f"Update plate failed: {e}")
+            return False
+        finally:
+            cur.close()
+
+    def delete_plate_entry(self, record_id: int, actor_user_id=None, actor_username=None) -> bool:
+        cur = self.conn.cursor()
+        try:
+            cur.execute(
+                "DELETE FROM plates WHERE id = %s",
+                (record_id,),
+            )
+
+            if cur.rowcount > 0:
+                self.add_log(
+                    event_type="plate_entry_deleted",
+                    details=f"Record ID={record_id}",
+                    user_id=actor_user_id,
+                    username=actor_username,
+                )
+                return True
+            return False
+        except Error as e:
+            print(f"Delete plate failed: {e}")
+            return False
+        finally:
+            cur.close()
 
     def _init_table(self):
         cur = self.conn.cursor()
@@ -50,7 +101,7 @@ class DatabaseManager:
                     id INT AUTO_INCREMENT PRIMARY KEY,
                     plate VARCHAR(32) NOT NULL,
                     source_file VARCHAR(512),
-                    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    timestamp DATETIME NOT NULL
                 )
                 """
             )
@@ -69,11 +120,66 @@ class DatabaseManager:
                     password_hash VARCHAR(128) NOT NULL,
                     role VARCHAR(32) NOT NULL,
                     full_name VARCHAR(128),
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    created_at DATETIME NOT NULL
                 )
                 """
             )
             self.conn.commit()
+        finally:
+            cur.close()
+
+    def _init_audit_logs_table(self):
+        cur = self.conn.cursor()
+        try:
+            cur.execute(
+                """
+                CREATE TABLE IF NOT EXISTS audit_logs (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    user_id INT NULL,
+                    username VARCHAR(64),
+                    event_type VARCHAR(64) NOT NULL,
+                    details TEXT,
+                    created_at DATETIME NOT NULL,
+                    INDEX idx_event_type (event_type),
+                    INDEX idx_created_at (created_at)
+                )
+                """
+            )
+            self.conn.commit()
+        finally:
+            cur.close()
+
+    def add_log(self, event_type: str, details: str = "", user_id=None, username: str = None) -> bool:
+        cur = self.conn.cursor()
+        try:
+            cur.execute(
+                """
+                INSERT INTO audit_logs (user_id, username, event_type, details, created_at)
+                VALUES (%s, %s, %s, %s, %s)
+                """,
+                (user_id, username, event_type, details, self._now_str()),
+            )
+            self.conn.commit()
+            return True
+        except Error as e:
+            print(f"Add log failed: {e}")
+            return False
+        finally:
+            cur.close()
+
+    def fetch_logs(self, limit=200):
+        cur = self.conn.cursor()
+        try:
+            cur.execute(
+                """
+                SELECT id, username, event_type, details, created_at
+                FROM audit_logs
+                ORDER BY created_at DESC
+                LIMIT %s
+                """,
+                (limit,),
+            )
+            return cur.fetchall()
         finally:
             cur.close()
 
@@ -88,14 +194,15 @@ class DatabaseManager:
             if row is None:
                 cur.execute(
                     """
-                    INSERT INTO users (username, password_hash, role, full_name)
-                    VALUES (%s, %s, %s, %s)
+                    INSERT INTO users (username, password_hash, role, full_name, created_at)
+                    VALUES (%s, %s, %s, %s, %s)
                     """,
                     (
                         "admin",
                         self._hash_password("admin123"),
                         "admin",
                         "System Administrator",
+                        self._now_str(),
                     ),
                 )
                 self.conn.commit()
@@ -116,10 +223,10 @@ class DatabaseManager:
         try:
             cur.execute(
                 """
-                INSERT INTO users (username, password_hash, role, full_name)
-                VALUES (%s, %s, %s, %s)
+                INSERT INTO users (username, password_hash, role, full_name, created_at)
+                VALUES (%s, %s, %s, %s, %s)
                 """,
-                (username, self._hash_password(password), role, full_name),
+                (username, self._hash_password(password), role, full_name, self._now_str()),
             )
             self.conn.commit()
             return True
@@ -176,21 +283,235 @@ class DatabaseManager:
         finally:
             cur.close()
 
-    def insert_plate(self, plate: str, source_file: str) -> bool:
+    def insert_plate(self, plate: str, source_file: str, actor_user_id=None, actor_username=None) -> bool:
         plate = (plate or "").strip().upper()
+        source_file = (source_file or "").strip()
         if not plate:
             return False
 
         cur = self.conn.cursor()
         try:
             cur.execute(
-                "INSERT INTO plates (plate, source_file, timestamp) VALUES (%s, %s, NOW())",
-                (plate, source_file),
-            )    
+                """
+                INSERT INTO plates (plate, source_file, timestamp)
+                VALUES (%s, %s, %s)
+                """,
+                (plate, source_file, self._now_str()),
+            )
             self.conn.commit()
+
+            self.add_log(
+                event_type="plate_entry_added",
+                details=f"Plate={plate}, source_file={source_file}",
+                user_id=actor_user_id,
+                username=actor_username,
+            )
             return True
         except Error as e:
             print(f"Insert failed: {e}")
+            return False
+        finally:
+            cur.close()
+
+    def _init_vehicles_table(self):
+        cur = self.conn.cursor()
+        try:
+            cur.execute(
+                """
+                CREATE TABLE IF NOT EXISTS vehicles (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    user_id INT NOT NULL,
+                    plate VARCHAR(32) NOT NULL,
+                    make VARCHAR(64),
+                    model VARCHAR(64),
+                    color VARCHAR(32),
+                    created_at DATETIME NOT NULL,
+                    UNIQUE KEY unique_user_plate (user_id, plate),
+                    CONSTRAINT fk_vehicle_user
+                        FOREIGN KEY (user_id) REFERENCES users(id)
+                        ON DELETE CASCADE
+                )
+                """
+            )
+            self.conn.commit()
+        finally:
+            cur.close()
+
+    def register_vehicle(self, user_id: int, plate: str, make: str = "", model: str = "", color: str = "") -> bool:
+        plate = (plate or "").strip().upper()
+        make = (make or "").strip()
+        model = (model or "").strip()
+        color = (color or "").strip()
+
+        if not user_id or not plate:
+            return False
+
+        cur = self.conn.cursor()
+        try:
+            cur.execute(
+                """
+                INSERT INTO vehicles (user_id, plate, make, model, color, created_at)
+                VALUES (%s, %s, %s, %s, %s, %s)
+                """,
+                (user_id, plate, make, model, color, self._now_str()),
+            )
+            self.conn.commit()
+            return True
+        except Error as e:
+            print(f"Register vehicle failed: {e}")
+            return False
+        finally:
+            cur.close()
+
+    def fetch_user_vehicles(self, user_id: int):
+        cur = self.conn.cursor()
+        try:
+            cur.execute(
+                """
+                SELECT id, plate, make, model, color, created_at
+                FROM vehicles
+                WHERE user_id = %s
+                ORDER BY created_at DESC
+                """,
+                (user_id,),
+            )
+            return cur.fetchall()
+        finally:
+            cur.close()
+
+    def delete_vehicle(self, vehicle_id: int, user_id: int) -> bool:
+        cur = self.conn.cursor()
+        try:
+            cur.execute(
+                "DELETE FROM vehicles WHERE id = %s AND user_id = %s",
+                (vehicle_id, user_id),
+            )
+            self.conn.commit()
+            return cur.rowcount > 0
+        except Error as e:
+            print(f"Delete vehicle failed: {e}")
+            return False
+        finally:
+            cur.close()
+    def _init_issues_table(self):
+        cur = self.conn.cursor()
+        try:
+            cur.execute(
+                """
+                CREATE TABLE IF NOT EXISTS issues (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    reported_by_user_id INT NOT NULL,
+                    reported_by_username VARCHAR(64) NOT NULL,
+                    location VARCHAR(128) NOT NULL,
+                    category VARCHAR(64) NOT NULL,
+                    priority VARCHAR(32) NOT NULL,
+                    description TEXT NOT NULL,
+                    status VARCHAR(32) NOT NULL,
+                    created_at DATETIME NOT NULL,
+                    FOREIGN KEY (reported_by_user_id) REFERENCES users(id)
+                        ON DELETE CASCADE
+                )
+                """
+            )
+            self.conn.commit()
+        finally:
+            cur.close()
+
+    def create_issue(self, user_id: int, username: str, location: str, category: str, priority: str, description: str) -> bool:
+        location = (location or "").strip()
+        category = (category or "").strip()
+        priority = (priority or "").strip()
+        description = (description or "").strip()
+
+        if not user_id or not username or not location or not category or not priority or not description:
+            return False
+
+        cur = self.conn.cursor()
+        try:
+            cur.execute(
+                """
+                INSERT INTO issues (
+                    reported_by_user_id,
+                    reported_by_username,
+                    location,
+                    category,
+                    priority,
+                    description,
+                    status,
+                    created_at
+                )
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                """,
+                (
+                    user_id,
+                    username,
+                    location,
+                    category,
+                    priority,
+                    description,
+                    "Open",
+                    self._now_str(),
+                ),
+            )
+            self.conn.commit()
+            return True
+        except Error as e:
+            print(f"Create issue failed: {e}")
+            return False
+        finally:
+            cur.close()
+
+    def fetch_issues(self, limit=200):
+        cur = self.conn.cursor()
+        try:
+            cur.execute(
+                """
+                SELECT id, reported_by_username, location, category, priority, status, description, created_at
+                FROM issues
+                ORDER BY created_at DESC
+                LIMIT %s
+                """,
+                (limit,),
+            )
+            return cur.fetchall()
+        finally:
+            cur.close()
+
+    def fetch_issues_by_user(self, user_id: int, limit=200):
+        cur = self.conn.cursor()
+        try:
+            cur.execute(
+                """
+                SELECT id, reported_by_username, location, category, priority, status, description, created_at
+                FROM issues
+                WHERE reported_by_user_id = %s
+                ORDER BY created_at DESC
+                LIMIT %s
+                """,
+                (user_id, limit),
+            )
+            return cur.fetchall()
+        finally:
+            cur.close()
+
+    def update_issue_status(self, issue_id: int, status: str) -> bool:
+        allowed = {"Open", "In Progress", "Resolved"}
+        status = (status or "").strip()
+        if not issue_id or not status:
+            return False
+        if status not in allowed:
+            return False
+
+        cur = self.conn.cursor()
+        try:
+            cur.execute(
+                "UPDATE issues SET status = %s WHERE id = %s",
+                (status, issue_id),
+            )
+            self.conn.commit()
+            return cur.rowcount > 0
+        except Error as e:
+            print(f"Update issue status failed: {e}")
             return False
         finally:
             cur.close()

@@ -25,20 +25,26 @@ def main():
 
     if not final_plate_text:
         print("No plate text available to insert into database.")
-        return
+        return 2
 
     try:
         with DatabaseManager() as db:
-            ok = db.insert_plate(final_plate_text, image_path)
+            inserted = db.insert_plate(
+                final_plate_text,
+                image_path,
+                actor_username="ocr_system",
+            )
 
-        if ok:
-            print(f"Inserted into database: {final_plate_text}")
+        if inserted:
+            print(f"Saved plate: {final_plate_text} (source: {image_path})")
+            return 0
         else:
             print("Database insert failed.")
-
+            return 3
     except Exception as e:
         print(f"Database error: {e}")
+        return 4
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())
