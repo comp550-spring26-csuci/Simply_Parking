@@ -908,24 +908,24 @@ if __name__ == "__main__":
         
 
         cv2.imshow("Detected Plate", outputs["result_vis"])
-        if outputs["plate_crop"] is not None:
-            cv2.imshow("Plate Crop", outputs["plate_crop"])
-        if outputs["straightened_plate"] is not None:
-            cv2.imshow("Straightened Plate", outputs["straightened_plate"])
-        if outputs["center_band"] is not None:
-            cv2.imshow("Center Text Band", outputs["center_band"])
-        if outputs["center_band_enhanced"] is not None:
-            cv2.imshow("Center Band Enhanced", outputs["center_band_enhanced"])
-        if outputs["center_band_binary"] is not None:
-            cv2.imshow("Center Band Binary", outputs["center_band_binary"])
-        if outputs["char_segment_vis"] is not None:
-            cv2.imshow("Character Segments", outputs["char_segment_vis"])
-        for c in outputs["char_images"]:
-            cv2.imshow(f"Char {c['index']}", c["image"])
+#        if outputs["plate_crop"] is not None:
+#            cv2.imshow("Plate Crop", outputs["plate_crop"])
+#        if outputs["straightened_plate"] is not None:
+#            cv2.imshow("Straightened Plate", outputs["straightened_plate"])
+#        if outputs["center_band"] is not None:
+#            cv2.imshow("Center Text Band", outputs["center_band"])
+#        if outputs["center_band_enhanced"] is not None:
+#            cv2.imshow("Center Band Enhanced", outputs["center_band_enhanced"])
+#        if outputs["center_band_binary"] is not None:
+#            cv2.imshow("Center Band Binary", outputs["center_band_binary"])
+#        for c in outputs["char_images"]:
+#            cv2.imshow(f"Char {c['index']}", c["image"])
         for c in outputs["normalized_chars"]:
             cv2.imshow(f"Norm Char {c['index']}", c["image"])
         if outputs["recognition_vis"] is not None:
             cv2.imshow("Recognition", outputs["recognition_vis"])
+        if outputs["char_segment_vis"] is not None:
+            cv2.imshow("Character Segments", outputs["char_segment_vis"])
         if outputs["validation_vis"] is not None:
             cv2.imshow("Validation", outputs["validation_vis"])
 
