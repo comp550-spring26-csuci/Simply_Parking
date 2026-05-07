@@ -22,7 +22,7 @@ def add_log(conn, event_type, details="", user_id=None, username=None):
     finally:
         cur.close()
 
-def fetch_logs(conn, limit=200):
+def fetch_logs(conn, limit=100):
     cur = conn.cursor()
     try:
         cur.execute(

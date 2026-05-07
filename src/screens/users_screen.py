@@ -1,10 +1,7 @@
-# screens/users_screen.py
-
 import tkinter as tk
 from tkinter import ttk, messagebox
 
 from utils.permissions import can_manage_users
-
 
 def build_manage_users_screen(app):
     app.clear_content()
@@ -41,13 +38,11 @@ def build_manage_users_screen(app):
         values=[
             "admin",
             "support_agent",
-            "semester_user",
-            "daily_user",
-            "payg_user",
+            "user",
         ],
     )
     role_combo.grid(row=3, column=1, pady=4, padx=5)
-    role_combo.set("semester_user")
+    role_combo.set("user")
 
     def refresh_table():
         for item in tree.get_children():
@@ -80,7 +75,7 @@ def build_manage_users_screen(app):
             full_name_entry.delete(0, tk.END)
             username_entry.delete(0, tk.END)
             password_entry.delete(0, tk.END)
-            role_combo.set("semester_user")
+            role_combo.set("user")
         else:
             messagebox.showerror("Error", "Could not create user")
 
@@ -170,7 +165,6 @@ def build_manage_users_screen(app):
 
     app.content_frame.update_idletasks()
     app.root.after_idle(safe_refresh)
-
 
 def build_manage_users_readonly_screen(app):
     app.clear_content()

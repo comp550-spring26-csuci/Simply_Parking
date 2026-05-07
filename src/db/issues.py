@@ -48,12 +48,12 @@ def create_issue(conn, user_id, username, location, category, priority, descript
     finally:
         cur.close()
 
-def fetch_issues(conn, limit=200):
+def fetch_issues(conn, limit=50):
     cur = conn.cursor()
     try:
         cur.execute(
             """
-            SELECT id, reported_by_username, location, category, priority, status, description, created_at
+            SELECT id, reported_by_user_id, reported_by_username, location, category, priority, status, description, created_at
             FROM issues
             ORDER BY created_at DESC
             LIMIT %s
@@ -64,12 +64,12 @@ def fetch_issues(conn, limit=200):
     finally:
         cur.close()
 
-def fetch_issues_by_user(conn, user_id, limit=200):
+def fetch_issues_by_user(conn, user_id, limit=50):
     cur = conn.cursor()
     try:
         cur.execute(
             """
-            SELECT id, reported_by_username, location, category, priority, status, description, created_at
+            SELECT id, reported_by_user_id, reported_by_username, location, category, priority, status, description, created_at
             FROM issues
             WHERE reported_by_user_id = %s
             ORDER BY created_at DESC

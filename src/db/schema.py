@@ -1,10 +1,35 @@
 def init_schema(conn):
+    print("Creating plates table...")
     create_plates_table(conn)
+
+    print("Creating users table...")
     create_users_table(conn)
+
+    print("Creating audit logs table...")
     create_audit_logs_table(conn)
+
+    print("Creating vehicles table...")
     create_vehicles_table(conn)
+
+    print("Creating issues table...")
     create_issues_table(conn)
+
+    print("Creating notifications table...")
     create_notifications_table(conn)
+
+    print("Creating daily permits table...")
+    create_daily_permits_table(conn)
+
+    print("Creating semester permits table...")
+    create_semester_permits_table(conn)
+
+    print("Creating payg payments table...")
+    create_payg_payments_table(conn)
+
+    print("Creating parking sessions table...")
+    create_parking_sessions_table(conn)
+
+    print("Schema ready.")
 
 def create_plates_table(conn):
     cur = conn.cursor()
@@ -127,6 +152,94 @@ def create_notifications_table(conn):
                 INDEX idx_user_id (user_id),
                 INDEX idx_is_read (is_read),
                 INDEX idx_created_at (created_at)
+            )
+            """
+        )
+        conn.commit()
+    finally:
+        cur.close()
+
+def create_daily_permits_table(conn):
+    cur = conn.cursor()
+    try:
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS daily_permits (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                user_id INT NOT NULL,
+                plate VARCHAR(32) NOT NULL,
+                permit_date DATE NOT NULL,
+                amount DECIMAL(6,2) NOT NULL DEFAULT 6.00,
+                created_at DATETIME NOT NULL,
+                INDEX idx_daily_user_date (user_id, permit_date),
+                UNIQUE KEY unique_user_plate_day (user_id, plate, permit_date)
+            )
+            """
+        )
+        conn.commit()
+    finally:
+        cur.close()
+
+
+def create_semester_permits_table(conn):
+    cur = conn.cursor()
+    try:
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS semester_permits (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                user_id INT NOT NULL,
+                plate VARCHAR(32) NOT NULL,
+                start_date DATE NOT NULL,
+                end_date DATE NOT NULL,
+                amount DECIMAL(6,2) NOT NULL DEFAULT 0.00,
+                created_at DATETIME NOT NULL,
+                FOREIGN KEY (user_id) REFERENCES users(id)
+                    ON DELETE CASCADE
+            )
+            """
+        )
+        conn.commit()
+    finally:
+        cur.close()
+
+
+def create_payg_payments_table(conn):
+    cur = conn.cursor()
+    try:
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS payg_payments (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                user_id INT NULL,
+                plate VARCHAR(32) NOT NULL,
+                duration_minutes INT NOT NULL,
+                amount DECIMAL(6,2) NOT NULL,
+                created_at DATETIME NOT NULL,
+                FOREIGN KEY (user_id) REFERENCES users(id)
+                    ON DELETE SET NULL
+            )
+            """
+        )
+        conn.commit()
+    finally:
+        cur.close()
+
+def create_parking_sessions_table(conn):
+    cur = conn.cursor()
+    try:
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS parking_sessions (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                plate VARCHAR(32) NOT NULL,
+                entry_time DATETIME NOT NULL,
+                exit_time DATETIME NULL,
+                status VARCHAR(32) NOT NULL DEFAULT 'active',
+                amount_due DECIMAL(6,2) NOT NULL DEFAULT 0.00,
+                created_at DATETIME NOT NULL,
+                INDEX idx_plate_status (plate, status),
+                INDEX idx_entry_time (entry_time)
             )
             """
         )

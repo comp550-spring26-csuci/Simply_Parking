@@ -19,6 +19,7 @@ from screens.manage_issues_screen import build_manage_issues_screen
 from screens.vehicles_screen import build_my_vehicle_screen, build_register_vehicle_screen
 from screens.daily_permit_screen import build_buy_daily_permit_screen, build_my_daily_permit_screen
 from screens.payg_screen import build_current_session_screen, build_pay_exit_screen
+from screens.guest_screen import build_guest_session_lookup_screen
 
 
 class PlateApp:
@@ -48,7 +49,9 @@ class PlateApp:
         self.last_seen_notification_id = 0
         self.notification_poll_job = None
 
+        print("Showing login...")
         self.show_login()
+        print("Login shown.")
 
     def clear_main(self):
         for widget in self.main_frame.winfo_children():
@@ -79,8 +82,10 @@ class PlateApp:
         )
 
         self.show_dashboard()
-        self.refresh_notification_badge()
-        self.start_notification_polling()
+
+        if self.current_user.get("id") is not None:
+            self.root.after_idle(self.refresh_notification_badge)
+            self.root.after(500, self.start_notification_polling)
 
     def logout(self):
         if self.current_user:
@@ -98,6 +103,16 @@ class PlateApp:
         self.last_seen_notification_id = 0
 
         self.show_login()
+
+    def continue_as_guest(self):
+        self.current_user = {
+            "id": None,
+            "username": "guest",
+            "role": "guest",
+            "full_name": "Guest",
+        }
+
+        self.show_dashboard()
 
     def show_login(self):
         self.clear_main()
@@ -167,6 +182,10 @@ class PlateApp:
         self.clear_content()
         build_notifications_screen(self)
 
+    def show_guest_session_lookup(self):
+        self.clear_content()
+        build_guest_session_lookup_screen(self)
+
     def refresh_notification_badge(self):
         if not self.current_user:
             return
@@ -187,16 +206,20 @@ class PlateApp:
         if not self.current_user:
             return
 
-        try:
-            self.last_seen_notification_id = self.db.fetch_latest_notification_id(
-                user_id=self.current_user["id"]
-            )
-        except Exception as e:
-            print(f"Failed to initialize notification polling: {e}")
-            self.last_seen_notification_id = 0
-
         self.stop_notification_polling()
-        self.poll_notifications()
+
+        def initialize_polling():
+            try:
+                self.last_seen_notification_id = self.db.fetch_latest_notification_id(
+                    user_id=self.current_user["id"]
+                )
+            except Exception as e:
+                print(f"Failed to initialize notification polling: {e}")
+                self.last_seen_notification_id = 0
+
+            self.poll_notifications()
+
+        self.root.after_idle(initialize_polling)
     
     def stop_notification_polling(self):
         if self.notification_poll_job is not None:
@@ -222,9 +245,11 @@ class PlateApp:
                 self.notifier.alert(
                     title=title,
                     message=message,
-                    popup=True,
+                    popup=False,
                     desktop=False,
                 )
+
+                print(f"Notification: {title} - {message}")
 
                 if notification_id > self.last_seen_notification_id:
                     self.last_seen_notification_id = notification_id
@@ -234,7 +259,7 @@ class PlateApp:
         except Exception as e:
             print(f"Notification polling error: {e}")
 
-        self.notification_poll_job = self.root.after(4000, self.poll_notifications)
+        self.notification_poll_job = self.root.after(15000, self.poll_notifications)
 
     def on_close(self):
         self.stop_notification_polling()

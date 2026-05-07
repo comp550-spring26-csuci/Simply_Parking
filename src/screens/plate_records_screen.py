@@ -1,5 +1,3 @@
-# screens/plate_records_screen.py
-
 import os
 import tkinter as tk
 from tkinter import ttk, messagebox
@@ -88,7 +86,7 @@ def build_plate_records_screen(app):
             tree.delete(item)
 
         try:
-            rows = app.db.fetch_all()
+            rows = app.db.fetch_all(limit=50)
             for row in rows:
                 tree.insert("", tk.END, values=row)
         except Exception as e:

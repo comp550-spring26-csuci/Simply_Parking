@@ -1,4 +1,3 @@
-# db/notifications.py
 
 from datetime import datetime
 from mysql.connector import Error
@@ -25,63 +24,6 @@ def create_notification(conn, title, message, notification_type="general", user_
         return None
     finally:
         cur.close()
-
-
-def fetch_notifications(conn, user_id=None, limit=100):
-    cur = conn.cursor()
-    try:
-        if user_id is None:
-            cur.execute(
-                """
-                SELECT id, user_id, title, message, notification_type, is_read, created_at
-                FROM notifications
-                ORDER BY created_at DESC
-                LIMIT %s
-                """,
-                (limit,),
-            )
-        else:
-            cur.execute(
-                """
-                SELECT id, user_id, title, message, notification_type, is_read, created_at
-                FROM notifications
-                WHERE user_id = %s OR user_id IS NULL
-                ORDER BY created_at DESC
-                LIMIT %s
-                """,
-                (user_id, limit),
-            )
-        return cur.fetchall()
-    finally:
-        cur.close()
-
-
-def fetch_unread_count(conn, user_id=None):
-    cur = conn.cursor()
-    try:
-        if user_id is None:
-            cur.execute(
-                """
-                SELECT COUNT(*)
-                FROM notifications
-                WHERE is_read = FALSE
-                """
-            )
-        else:
-            cur.execute(
-                """
-                SELECT COUNT(*)
-                FROM notifications
-                WHERE is_read = FALSE
-                  AND (user_id = %s OR user_id IS NULL)
-                """,
-                (user_id,),
-            )
-        row = cur.fetchone()
-        return row[0] if row else 0
-    finally:
-        cur.close()
-
 
 def mark_notification_read(conn, notification_id):
     cur = conn.cursor()
@@ -122,6 +64,61 @@ def mark_all_notifications_read(conn, user_id=None):
     finally:
         cur.close()
 
+def fetch_notifications(conn, user_id=None, limit=50):
+    cur = conn.cursor()
+    try:
+        if user_id is None:
+            cur.execute(
+                """
+                SELECT id, user_id, title, message, notification_type, is_read, created_at
+                FROM notifications
+                ORDER BY created_at DESC
+                LIMIT %s
+                """,
+                (limit,),
+            )
+        else:
+            cur.execute(
+                """
+                SELECT id, user_id, title, message, notification_type, is_read, created_at
+                FROM notifications
+                WHERE user_id = %s
+                ORDER BY created_at DESC
+                LIMIT %s
+                """,
+                (user_id, limit),
+            )
+        return cur.fetchall()
+    finally:
+        cur.close()
+
+
+def fetch_unread_count(conn, user_id=None):
+    cur = conn.cursor()
+    try:
+        if user_id is None:
+            cur.execute(
+                """
+                SELECT COUNT(*)
+                FROM notifications
+                WHERE is_read = FALSE
+                """
+            )
+        else:
+            cur.execute(
+                """
+                SELECT COUNT(*)
+                FROM notifications
+                WHERE is_read = FALSE
+                  AND user_id = %s
+                """,
+                (user_id,),
+            )
+        row = cur.fetchone()
+        return row[0] if row else 0
+    finally:
+        cur.close()
+
 
 def fetch_latest_notification_id(conn, user_id=None):
     cur = conn.cursor()
@@ -133,7 +130,7 @@ def fetch_latest_notification_id(conn, user_id=None):
                 """
                 SELECT MAX(id)
                 FROM notifications
-                WHERE user_id = %s OR user_id IS NULL
+                WHERE user_id = %s
                 """,
                 (user_id,),
             )
@@ -153,6 +150,7 @@ def fetch_unread_notifications_after(conn, last_seen_id, user_id=None):
                 FROM notifications
                 WHERE id > %s AND is_read = FALSE
                 ORDER BY id ASC
+                LIMIT 10
                 """,
                 (last_seen_id,),
             )
@@ -163,8 +161,9 @@ def fetch_unread_notifications_after(conn, last_seen_id, user_id=None):
                 FROM notifications
                 WHERE id > %s
                   AND is_read = FALSE
-                  AND (user_id = %s OR user_id IS NULL)
+                  AND user_id = %s
                 ORDER BY id ASC
+                LIMIT 10
                 """,
                 (last_seen_id, user_id),
             )

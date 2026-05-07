@@ -1,4 +1,5 @@
 from datetime import datetime
+from db.parking_sessions import create_session_if_not_active
 from mysql.connector import Error
 from db.logs import add_log
 
@@ -22,6 +23,7 @@ def insert_plate(conn, plate, source_file, actor_user_id=None, actor_username=No
             (plate, source_file, now_str()),
         )
         conn.commit()
+        create_session_if_not_active(conn, plate)
 
         add_log(
             conn,
@@ -37,7 +39,7 @@ def insert_plate(conn, plate, source_file, actor_user_id=None, actor_username=No
     finally:
         cur.close()
 
-def fetch_all(conn, limit=None):
+def fetch_all(conn, limit=50):
     sql = "SELECT id, plate, source_file, timestamp FROM plates ORDER BY timestamp DESC"
     params = ()
 
@@ -103,5 +105,28 @@ def delete_plate_entry(conn, record_id, actor_user_id=None, actor_username=None)
     except Error as e:
         print(f"Delete plate failed: {e}")
         return False
+    finally:
+        cur.close()
+    
+
+def fetch_latest_plate_session(conn, plate):
+    plate = (plate or "").strip().upper()
+
+    if not plate:
+        return None
+
+    cur = conn.cursor()
+    try:
+        cur.execute(
+            """
+            SELECT id, plate, source_file, timestamp
+            FROM plates
+            WHERE plate = %s
+            ORDER BY timestamp DESC
+            LIMIT 1
+            """,
+            (plate,),
+        )
+        return cur.fetchone()
     finally:
         cur.close()

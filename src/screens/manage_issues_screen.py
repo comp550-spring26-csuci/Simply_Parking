@@ -1,5 +1,3 @@
-# screens/manage_issues_screen.py
-
 import tkinter as tk
 from tkinter import ttk, messagebox
 
@@ -27,7 +25,7 @@ def build_manage_issues_screen(app):
 
     headings = {
         "id": "ID",
-        "reported_by": "Reported By",
+        "reported_by": "Created By",
         "location": "Location",
         "category": "Category",
         "priority": "Priority",
@@ -39,14 +37,14 @@ def build_manage_issues_screen(app):
     for col in columns:
         tree.heading(col, text=headings[col])
 
-    tree.column("id", width=50, anchor="center")
-    tree.column("reported_by", width=110, anchor="center")
-    tree.column("location", width=140, anchor="center")
-    tree.column("category", width=130, anchor="center")
-    tree.column("priority", width=90, anchor="center")
-    tree.column("status", width=100, anchor="center")
-    tree.column("description", width=280, anchor="w")
-    tree.column("created_at", width=160, anchor="center")
+    tree.column("id", width=50, anchor="center", stretch=False)
+    tree.column("reported_by", width=120, anchor="center", stretch=False)
+    tree.column("location", width=140, anchor="center", stretch=False)
+    tree.column("category", width=140, anchor="center", stretch=False)
+    tree.column("priority", width=90, anchor="center", stretch=False)
+    tree.column("status", width=110, anchor="center", stretch=False)
+    tree.column("description", width=280, anchor="w", stretch=True)
+    tree.column("created_at", width=150, anchor="center", stretch=False)
 
     scrollbar = ttk.Scrollbar(table_frame, orient="vertical", command=tree.yview)
     tree.configure(yscrollcommand=scrollbar.set)
@@ -72,14 +70,66 @@ def build_manage_issues_screen(app):
     status_combo.set("Open")
 
     selected_issue_id = {"value": None}
+    selected_creator_user_id = {"value": None}
+    issue_creator_map = {}
+
+    def safe_widget_exists(widget):
+        try:
+            return widget.winfo_exists()
+        except tk.TclError:
+            return False
 
     def refresh_table():
+        if not safe_widget_exists(tree):
+            return
+
         for item in tree.get_children():
             tree.delete(item)
 
-        rows = app.db.fetch_issues()
+        issue_creator_map.clear()
+
+        rows = app.db.fetch_issues(limit=50)
+
+        if not safe_widget_exists(tree):
+            return
+
         for row in rows:
-            tree.insert("", tk.END, values=row)
+            (
+                issue_id,
+                creator_user_id,
+                reported_by,
+                location,
+                category,
+                priority,
+                status,
+                description,
+                created_at,
+            ) = row
+
+            issue_creator_map[str(issue_id)] = creator_user_id
+
+            tree.insert(
+                "",
+                tk.END,
+                values=(
+                    issue_id,
+                    reported_by,
+                    location,
+                    category,
+                    priority,
+                    status,
+                    description,
+                    created_at,
+                ),
+            )
+
+    def safe_refresh_table():
+        try:
+            refresh_table()
+        except tk.TclError:
+            return
+        except Exception as e:
+            messagebox.showerror("Error", str(e))
 
     def on_row_select(event):
         selected = tree.selection()
@@ -90,15 +140,18 @@ def build_manage_issues_screen(app):
         if not values:
             return
 
-        issue_id = values[0]
+        issue_id = str(values[0])
         current_status = values[5]
 
         selected_issue_id["value"] = issue_id
-        issue_id_label.config(text=str(issue_id))
+        selected_creator_user_id["value"] = issue_creator_map.get(issue_id)
+
+        issue_id_label.config(text=issue_id)
         status_combo.set(current_status)
 
     def update_status():
         issue_id = selected_issue_id["value"]
+        creator_user_id = selected_creator_user_id["value"]
         new_status = status_combo.get().strip()
 
         if not issue_id:
@@ -113,8 +166,20 @@ def build_manage_issues_screen(app):
                 user_id=app.current_user["id"],
                 username=app.current_user["username"],
             )
+
+            if creator_user_id:
+                app.db.create_notification(
+                    title="Issue Status Updated",
+                    message=f"Your issue #{issue_id} is now {new_status}.",
+                    notification_type="issue_status",
+                    user_id=int(creator_user_id),
+                )
+
+            if hasattr(app, "refresh_notification_badge"):
+                app.refresh_notification_badge()
+
             messagebox.showinfo("Success", "Issue status updated.")
-            app.root.after_idle(refresh_table)
+            app.root.after_idle(safe_refresh_table)
         else:
             messagebox.showerror("Error", "Could not update issue status.")
 
@@ -124,7 +189,4 @@ def build_manage_issues_screen(app):
 
     tree.bind("<<TreeviewSelect>>", on_row_select)
 
-    try:
-        app.root.after_idle(refresh_table)
-    except Exception as e:
-        messagebox.showerror("Error", str(e))
+    app.root.after_idle(safe_refresh_table)

@@ -106,3 +106,11 @@ def build_notifications_screen(app):
         refresh_table()
     except Exception as e:
         messagebox.showerror("Error", str(e))
+    
+    def safe_refresh():
+        try:
+            refresh_table()
+        except Exception as e:
+            messagebox.showerror("Error", str(e))
+
+    app.root.after_idle(safe_refresh)

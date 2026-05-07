@@ -1,8 +1,5 @@
-# screens/report_issue_screen.py
-
 import tkinter as tk
 from tkinter import ttk, messagebox
-
 
 def build_report_issue_screen(app):
     app.clear_content()
@@ -163,7 +160,19 @@ def build_report_issue_screen(app):
                 rows = app.db.fetch_issues_by_user(app.current_user["id"])
 
             for row in rows:
-                tree.insert("", tk.END, values=row)
+                issue_id, _creator_id, reported_by, location, category, priority, status, description, created_at = row
+
+                tree.insert("",tk.END,values=(
+                        issue_id,
+                        reported_by,
+                        location,
+                        category,
+                        priority,
+                        status,
+                        description,
+                        created_at,
+                    ),
+                )
         except Exception as e:
             messagebox.showerror("Error", str(e))
 

@@ -68,24 +68,19 @@ def build_dashboard_screen(app):
         add_nav_button(nav, "Logs", app.show_logs_reports)
         app.notifications_button = add_nav_button(nav, "Notifications", app.show_notifications)
         add_nav_button(nav, "Report Issue", app.show_report_issue)
-
-    elif role == "parking_officer":
-        add_nav_button(nav, "Monitor Parking", app.show_plate_records)
-        
-
-    elif role == "semester_user":
+ 
+    elif role == "user":
         add_nav_button(nav, "My Vehicle", app.show_my_vehicle)
         add_nav_button(nav, "Register Vehicle", app.show_register_vehicle)
-        add_nav_button(nav, "Report Issue", app.show_report_issue)
-
-    elif role == "daily_user":
         add_nav_button(nav, "Buy Daily Permit", app.show_buy_daily_permit)
         add_nav_button(nav, "My Daily Permit", app.show_my_daily_permit)
-        add_nav_button(nav, "Report Issue", app.show_report_issue)
-
-    elif role == "payg_user":
         add_nav_button(nav, "Current Session", app.show_current_session)
         add_nav_button(nav, "Pay On Exit", app.show_pay_exit)
         add_nav_button(nav, "Report Issue", app.show_report_issue)
+        app.notifications_button = add_nav_button(nav, "Notifications", app.show_notifications)
+   
+    elif role == "guest":
+        add_nav_button(nav, "Check Parking Time", app.show_guest_session_lookup)
+        add_nav_button(nav, "Pay On Exit", app.show_pay_exit)
 
     show_home(app)
