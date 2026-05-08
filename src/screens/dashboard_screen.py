@@ -51,23 +51,26 @@ def build_dashboard_screen(app):
     role = app.current_user["role"]
 
     if role == "admin":
+        add_nav_button(nav, "Admin Dashboard", app.show_admin_dashboard)
+        add_nav_button(nav, "Active Sessions", app.show_active_sessions)
         add_nav_button(nav, "Plate Records", app.show_plate_records)
         add_nav_button(nav, "Add Plate", app.show_add_plate)
         add_nav_button(nav, "Manage Users", app.show_manage_users)
         add_nav_button(nav, "Manage Issues", app.show_manage_issues)
         add_nav_button(nav, "Logs & Reports", app.show_logs_reports)
-        app.notifications_button = add_nav_button(nav, "Notifications", app.show_notifications)
         add_nav_button(nav, "Report Issue", app.show_report_issue)
+        app.notifications_button = add_nav_button(nav, "Notifications", app.show_notifications)
 
     elif role == "support_agent":
+        add_nav_button(nav, "Active Sessions", app.show_active_sessions)
         add_nav_button(nav, "Customer History", app.show_plate_records)
         add_nav_button(nav, "Add Plate", app.show_add_plate)
         add_nav_button(nav, "Manage Accounts", app.show_manage_users_readonly)
         add_nav_button(nav, "Manage Issues", app.show_manage_issues)
         add_nav_button(nav, "Reset Password", app.show_reset_password)
         add_nav_button(nav, "Logs", app.show_logs_reports)
-        app.notifications_button = add_nav_button(nav, "Notifications", app.show_notifications)
         add_nav_button(nav, "Report Issue", app.show_report_issue)
+        app.notifications_button = add_nav_button(nav, "Notifications", app.show_notifications)
  
     elif role == "user":
         add_nav_button(nav, "My Vehicle", app.show_my_vehicle)
@@ -75,6 +78,7 @@ def build_dashboard_screen(app):
         add_nav_button(nav, "Buy Daily Permit", app.show_buy_daily_permit)
         add_nav_button(nav, "My Daily Permit", app.show_my_daily_permit)
         add_nav_button(nav, "Current Session", app.show_current_session)
+        add_nav_button(nav, "Payment History", app.show_payment_history)
         add_nav_button(nav, "Pay On Exit", app.show_pay_exit)
         add_nav_button(nav, "Report Issue", app.show_report_issue)
         app.notifications_button = add_nav_button(nav, "Notifications", app.show_notifications)

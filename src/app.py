@@ -20,6 +20,9 @@ from screens.vehicles_screen import build_my_vehicle_screen, build_register_vehi
 from screens.daily_permit_screen import build_buy_daily_permit_screen, build_my_daily_permit_screen
 from screens.payg_screen import build_current_session_screen, build_pay_exit_screen
 from screens.guest_screen import build_guest_session_lookup_screen
+from screens.payment_history_screen import build_payment_history_screen
+from screens.admin_dashboard_screen import build_admin_dashboard_screen
+from screens.active_sessions_screen import build_active_sessions_screen
 
 
 class PlateApp:
@@ -122,6 +125,10 @@ class PlateApp:
         self.clear_main()
         build_dashboard_screen(self)
 
+    def show_admin_dashboard(self):
+        self.clear_content()
+        build_admin_dashboard_screen(self)
+
     def show_plate_records(self):
         self.clear_content()
         build_plate_records_screen(self)
@@ -153,6 +160,10 @@ class PlateApp:
     def show_manage_issues(self):
         self.clear_content()
         build_manage_issues_screen(self)
+    
+    def show_active_sessions(self):
+        self.clear_content()
+        build_active_sessions_screen(self)
 
     def show_my_vehicle(self):
         self.clear_content()
@@ -220,6 +231,10 @@ class PlateApp:
             self.poll_notifications()
 
         self.root.after_idle(initialize_polling)
+
+    def show_payment_history(self):
+        self.clear_content()
+        build_payment_history_screen(self)
     
     def stop_notification_polling(self):
         if self.notification_poll_job is not None:
