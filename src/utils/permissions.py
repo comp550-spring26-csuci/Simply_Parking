@@ -1,23 +1,43 @@
 def is_admin(user):
     return user and user.get("role") == "admin"
 
-def can_manage_users(user):
-    return user and user.get("role") in {"admin", "support_agent"}
 
-def can_modify_plates(user):
-    return user and user.get("role") in {"admin", "support_agent"}
+def is_support_agent(user):
+    return user and user.get("role") == "support_agent"
+
+
+def is_parking_officer(user):
+    return user and user.get("role") == "parking_officer"
+
+
+def can_manage_users(user):
+    return is_admin(user)
+
 
 def can_manage_issues(user):
-    return user and user.get("role") in {"admin", "support_agent"}
-
-def can_report_issues(user):
     return user and user.get("role") in {
         "admin",
         "support_agent",
-        "semester_user",
-        "daily_user",
-        "payg_user",
+        "parking_officer",
     }
 
-def can_manage_own_vehicle(user):
-    return user and user.get("role") == "semester_user"
+
+def can_modify_plates(user):
+    return user and user.get("role") in {
+        "admin",
+        "parking_officer",
+    }
+
+
+def can_view_logs(user):
+    return user and user.get("role") in {
+        "admin",
+        "support_agent",
+    }
+
+
+def can_reset_password(user):
+    return user and user.get("role") in {
+        "admin",
+        "support_agent",
+    }
