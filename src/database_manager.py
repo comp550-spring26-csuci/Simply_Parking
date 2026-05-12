@@ -180,6 +180,45 @@ class DatabaseManager:
     def fetch_payg_payments_for_user(self, user_id, limit=75):
         return fetch_payg_payments_for_user(self.conn, user_id, limit)
 
+    def fetch_active_sessions(self): # (AxT)Fetch all active parking sessions with calculated duration and amount due (currently set to $0.00 as a placeholder, but can be extended with actual pricing logic based on duration and parking rules)
+        cur = self.conn.cursor()
+        try:
+            cur.execute(
+                """
+                SELECT 
+                    id,
+                    plate,
+                    timestamp AS entry_time,
+                    TIMESTAMPDIFF(MINUTE, timestamp, NOW()) AS duration_minutes,
+                    'Active' AS status,
+                    0.00 AS amount_due
+                FROM plates
+                ORDER BY timestamp DESC
+                """
+            )
+
+            rows = cur.fetchall()
+
+            formatted_rows = []
+            for row in rows:
+                session_id, plate, entry_time, duration_minutes, status, amount_due = row
+
+                duration = f"{duration_minutes} min"
+
+                formatted_rows.append((
+                    session_id,
+                    plate,
+                    entry_time,
+                    duration,
+                    status,
+                    f"${amount_due:.2f}"
+                ))
+
+            return formatted_rows
+
+        finally:
+            cur.close()  
+
     def close(self):
         try:
             if self.conn.is_connected():
