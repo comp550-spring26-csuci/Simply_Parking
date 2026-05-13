@@ -1,0 +1,7 @@
+mysql-connector-python>=8.0
+python-dotenv>=1.0
+stripe>=7.0
+Pillow>=10.0
+opencv-python>=4.8
+qrcode[pil]>=7.4
+plyer>=2.1
