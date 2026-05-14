@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import messagebox
+from tkinter import messagebox, ttk
 from datetime import datetime
 import webbrowser
 import threading
@@ -42,12 +42,48 @@ def build_current_session_screen(app):
 
     tk.Label(f, text="Current Parking Session",
              font=("Arial", 16, "bold")).grid(row=0, column=0, columnspan=2, pady=10)
-    tk.Label(f, text="License Plate").grid(row=1, column=0, sticky="e", pady=5)
+
+    selected_plate = tk.StringVar(value="")
+    vehicle_label = tk.Label(f, text="Registered Vehicle")
+    vehicle_combo = ttk.Combobox(f, textvariable=selected_plate, state="readonly", width=28)
+    vehicle_label.grid(row=1, column=0, sticky="e", pady=5)
+    vehicle_combo.grid(row=1, column=1, padx=5, pady=5, sticky="w")
+
+    tk.Label(f, text="License Plate").grid(row=2, column=0, sticky="e", pady=5)
     pe = _entry(f)
-    pe.grid(row=1, column=1, padx=5, pady=5)
+    pe.grid(row=2, column=1, padx=5, pady=5)
+
+    def on_vehicle_selected(event=None):
+        value = selected_plate.get().strip()
+        if value:
+            pe.delete(0, tk.END)
+            pe.insert(0, value)
+            lookup()
+
+    vehicle_combo.bind("<<ComboboxSelected>>", on_vehicle_selected)
+
+    def load_user_vehicles():
+        if not app.current_user or app.current_user.get("role") != "user":
+            vehicle_combo.grid_remove(); vehicle_label.grid_remove();
+            return
+        try:
+            rows = app.db.fetch_user_vehicles(app.current_user["id"])
+        except Exception:
+            rows = []
+        if rows:
+            plates = [row[1] for row in rows]
+            vehicle_combo["values"] = plates
+            selected_plate.set(plates[0])
+            pe.delete(0, tk.END)
+            pe.insert(0, plates[0])
+            app.root.after(0, lookup)
+        else:
+            vehicle_combo.grid_remove(); vehicle_label.grid_remove()
+
+    app.root.after_idle(load_user_vehicles)
 
     rl = tk.Label(f, text="Enter your plate to check active session.", justify="left")
-    rl.grid(row=3, column=0, columnspan=2, sticky="w", pady=15)
+    rl.grid(row=4, column=0, columnspan=2, sticky="w", pady=15)
 
     job = {"id": None}
 
@@ -80,7 +116,7 @@ def build_current_session_screen(app):
         stop()
         refresh(plate)
 
-    tk.Button(f, text="Check Time", command=lookup).grid(row=2, column=0, columnspan=2, pady=10)
+    tk.Button(f, text="Check Time", command=lookup).grid(row=3, column=0, columnspan=2, pady=10)
 
 
 def build_pay_exit_screen(app):
@@ -90,12 +126,48 @@ def build_pay_exit_screen(app):
 
     tk.Label(f, text="Pay On Exit",
              font=("Arial", 16, "bold")).grid(row=0, column=0, columnspan=3, pady=10)
-    tk.Label(f, text="License Plate").grid(row=1, column=0, sticky="e", pady=5)
+
+    selected_plate = tk.StringVar(value="")
+    vehicle_label = tk.Label(f, text="Registered Vehicle")
+    vehicle_combo = ttk.Combobox(f, textvariable=selected_plate, state="readonly", width=28)
+    vehicle_label.grid(row=1, column=0, sticky="e", pady=5)
+    vehicle_combo.grid(row=1, column=1, padx=5, pady=5, sticky="w")
+
+    tk.Label(f, text="License Plate").grid(row=2, column=0, sticky="e", pady=5)
     pe = _entry(f)
-    pe.grid(row=1, column=1, pady=5, padx=5)
+    pe.grid(row=2, column=1, pady=5, padx=5)
+
+    def on_vehicle_selected(event=None):
+        value = selected_plate.get().strip()
+        if value:
+            pe.delete(0, tk.END)
+            pe.insert(0, value)
+            calc()
+
+    vehicle_combo.bind("<<ComboboxSelected>>", on_vehicle_selected)
+
+    def load_user_vehicles():
+        if not app.current_user or app.current_user.get("role") != "user":
+            vehicle_combo.grid_remove(); vehicle_label.grid_remove();
+            return
+        try:
+            rows = app.db.fetch_user_vehicles(app.current_user["id"])
+        except Exception:
+            rows = []
+        if rows:
+            plates = [row[1] for row in rows]
+            vehicle_combo["values"] = plates
+            selected_plate.set(plates[0])
+            pe.delete(0, tk.END)
+            pe.insert(0, plates[0])
+            app.root.after(0, calc)
+        else:
+            vehicle_combo.grid_remove(); vehicle_label.grid_remove()
+
+    app.root.after_idle(load_user_vehicles)
 
     al = tk.Label(f, text="Enter plate to calculate amount.", justify="left")
-    al.grid(row=3, column=0, columnspan=3, pady=10)
+    al.grid(row=4, column=0, columnspan=2, pady=10)
 
     state = {"session_id": None, "done": False}
     lock = threading.Lock()
@@ -280,10 +352,10 @@ def build_pay_exit_screen(app):
 
         threading.Thread(target=worker, daemon=True).start()
 
-    tk.Button(f, text="Calculate Amount", command=calc).grid(row=2, column=0, pady=10, padx=4)
+    tk.Button(f, text="Calculate Amount", command=calc).grid(row=3, column=0, columnspan=2, pady=10, padx=4)
 
     bf = tk.Frame(f)
-    bf.grid(row=4, column=0, columnspan=3, pady=8)
+    bf.grid(row=5, column=0, columnspan=2, pady=8)
     pay_btn = tk.Button(bf, text="Pay with Stripe (Browser)", width=26, command=lambda: _start_checkout("browser"))
     pay_btn.pack(side="left", padx=6)
     qr_btn = tk.Button(bf, text="Pay with QR Code", width=20, command=lambda: _start_checkout("qr"))
@@ -293,4 +365,4 @@ def build_pay_exit_screen(app):
                            width=30, bg="#1a7a1a", fg="white",
                            font=("Arial", 11, "bold"),
                            state="disabled", command=manual_verify)
-    verify_btn.grid(row=5, column=0, columnspan=3, pady=(4, 4))
+    verify_btn.grid(row=6, column=0, columnspan=2, pady=(4, 4))

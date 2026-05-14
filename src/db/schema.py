@@ -26,7 +26,7 @@ def init_schema(conn):
         CONSTRAINT fk_vehicle_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE)""")
     _run(conn, """CREATE TABLE IF NOT EXISTS issues (
         id INT AUTO_INCREMENT PRIMARY KEY,
-        reported_by_user_id INT NOT NULL, reported_by_username VARCHAR(64) NOT NULL,
+        reported_by_user_id INT NULL, reported_by_username VARCHAR(64) NOT NULL,
         location VARCHAR(128) NOT NULL, category VARCHAR(64) NOT NULL,
         priority VARCHAR(32) NOT NULL, description TEXT NOT NULL,
         status VARCHAR(32) NOT NULL, created_at DATETIME NOT NULL,
@@ -71,10 +71,14 @@ def init_schema(conn):
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL)""")
     _run(conn, """CREATE TABLE IF NOT EXISTS parking_sessions (
         id INT AUTO_INCREMENT PRIMARY KEY,
-        plate VARCHAR(32) NOT NULL, entry_time DATETIME NOT NULL,
-        exit_time DATETIME NULL, status VARCHAR(32) NOT NULL DEFAULT 'active',
-        amount_due DECIMAL(6,2) NOT NULL DEFAULT 0.00, created_at DATETIME NOT NULL,
-        INDEX idx_plate_status (plate, status), INDEX idx_entry_time (entry_time))""")
+        plate VARCHAR(32) NOT NULL,
+        entry_time DATETIME NOT NULL,
+        exit_time DATETIME NULL,
+        status VARCHAR(32) NOT NULL DEFAULT 'active',
+        amount_due DECIMAL(6,2) NOT NULL DEFAULT 0.00,
+        created_at DATETIME NOT NULL,
+        INDEX idx_plate_status (plate, status),
+        INDEX idx_entry_time (entry_time))""")
 
     _upgrade_existing_schema(conn)
     print("Schema ready.")
@@ -141,3 +145,7 @@ def _upgrade_existing_schema(conn):
     _add_unique_if_missing(conn, "payg_payments", "uniq_payg_stripe_pi", "stripe_payment_intent_id")
     _add_index_if_missing(conn, "semester_permits", "idx_sem_user_plate_dates", "user_id, plate, start_date, end_date")
     _add_index_if_missing(conn, "payg_payments", "idx_payg_session", "parking_session_id")
+    try:
+        _run(conn, "ALTER TABLE issues MODIFY COLUMN reported_by_user_id INT NULL")
+    except Exception:
+        pass

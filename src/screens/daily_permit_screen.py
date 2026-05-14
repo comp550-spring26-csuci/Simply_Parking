@@ -220,6 +220,8 @@ def build_buy_daily_permit_screen(app):
                            state="disabled", command=manual_verify)
     verify_btn.grid(row=7, column=0, columnspan=3, pady=(4, 12))
 
+    tk.Button(f, text="← Back", command=app.show_buy_permit_choice).grid(row=8, column=0, columnspan=3, pady=(0, 0))
+
     load_vehicles()
 
 

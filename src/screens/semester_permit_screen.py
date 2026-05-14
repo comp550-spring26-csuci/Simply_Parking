@@ -9,16 +9,31 @@ import stripe_controller
 from screens.qr_payment_screen import open_qr_payment
 
 PRICE = 250.00
-DEFAULT_DAYS = 120
 POLL_SECONDS = 2
 POLL_ATTEMPTS = 300
 
+# Semester definitions: (label, start_date, end_date)
+SEMESTERS = [
+    ("Spring 2026", date(2026, 1, 24), date(2026, 5, 29)),
+    ("Fall 2026", date(2026, 8, 22), date(2026, 12, 18)),
+    ("Spring 2027", date(2027, 1, 22), date(2027, 5, 28)),
+    ("Fall 2027", date(2027, 8, 21), date(2027, 12, 17)),
+    ("Spring 2028", date(2028, 1, 21), date(2028, 5, 26)),
+]
 
 def _entry(parent, **kw):
     return tk.Entry(parent, width=30, bg="#1f1f1f", fg="white", insertbackground="white",
                     relief="solid", highlightthickness=1, highlightbackground="#777",
                     highlightcolor="#aaa", **kw)
 
+def _get_current_semester():
+    """Return the label of the semester that today's date falls under, or the next upcoming semester."""
+    today = date.today()
+    for label, start, end in SEMESTERS:
+        if start <= today <= end:
+            return label
+    # If today is outside all defined semesters, return the first one
+    return SEMESTERS[0][0] if SEMESTERS else None
 
 def build_semester_permit_screen(app):
     app.clear_content()
@@ -56,24 +71,55 @@ def build_semester_permit_screen(app):
     vehicle_combo.grid(row=2, column=1, padx=6, pady=6)
     tk.Button(outer, text="Register Vehicle", command=app.show_register_vehicle).grid(row=2, column=2, padx=6)
 
-    today = date.today()
-    end_default = today + timedelta(days=DEFAULT_DAYS)
+    # Semester selection dropdown
+    tk.Label(outer, text="Select Semester").grid(row=3, column=0, sticky="e", pady=6)
+    semester_var = tk.StringVar()
+    semester_combo = ttk.Combobox(outer, textvariable=semester_var, state="readonly", width=32)
+    semester_labels = [label for label, _, _ in SEMESTERS]
+    semester_combo["values"] = semester_labels
+    semester_combo.grid(row=3, column=1, padx=6, pady=6)
+    
+    # Set default to current semester
+    current_sem = _get_current_semester()
+    if current_sem:
+        semester_combo.set(current_sem)
 
-    tk.Label(outer, text="Start Date (YYYY-MM-DD)").grid(row=3, column=0, sticky="e", pady=6)
-    se = _entry(outer)
-    se.insert(0, str(today))
-    se.grid(row=3, column=1, padx=6, pady=6)
+    # Date display labels (read-only)
+    tk.Label(outer, text="Start Date").grid(row=4, column=0, sticky="e", pady=6)
+    start_lbl = tk.Label(outer, text="", fg="#1a7a1a", font=("Arial", 10, "bold"))
+    start_lbl.grid(row=4, column=1, padx=6, pady=6, sticky="w")
 
-    tk.Label(outer, text="End Date (YYYY-MM-DD)").grid(row=4, column=0, sticky="e", pady=6)
-    ee = _entry(outer)
-    ee.insert(0, str(end_default))
-    ee.grid(row=4, column=1, padx=6, pady=6)
+    tk.Label(outer, text="End Date").grid(row=5, column=0, sticky="e", pady=6)
+    end_lbl = tk.Label(outer, text="", fg="#1a7a1a", font=("Arial", 10, "bold"))
+    end_lbl.grid(row=5, column=1, padx=6, pady=6, sticky="w")
 
-    tk.Label(outer, text=f"Price: ${PRICE:.2f} ({DEFAULT_DAYS}-day semester permit)",
-             font=("Arial", 11)).grid(row=5, column=0, columnspan=3, pady=8)
+    # Store selected semester dates
+    selected_dates = {"start": None, "end": None}
+
+    def update_dates(event=None):
+        sem_label = semester_var.get().strip()
+        for label, start, end in SEMESTERS:
+            if label == sem_label:
+                selected_dates["start"] = start
+                selected_dates["end"] = end
+                start_lbl.config(text=str(start))
+                end_lbl.config(text=str(end))
+                return
+        selected_dates["start"] = None
+        selected_dates["end"] = None
+        start_lbl.config(text="")
+        end_lbl.config(text="")
+
+    semester_combo.bind("<<ComboboxSelected>>", update_dates)
+    # Trigger initial date display
+    if current_sem:
+        app.root.after_idle(update_dates)
+
+    tk.Label(outer, text=f"Price: ${PRICE:.2f} (semester permit)",
+             font=("Arial", 11)).grid(row=6, column=0, columnspan=3, pady=8)
 
     sl = tk.Label(outer, text="", fg="blue", justify="left")
-    sl.grid(row=6, column=0, columnspan=3, pady=4)
+    sl.grid(row=7, column=0, columnspan=3, pady=4)
 
     state = {"session_id": None, "done": False}
     lock = threading.Lock()
@@ -113,17 +159,10 @@ def build_semester_permit_screen(app):
             messagebox.showwarning("Vehicle Required", "Register and select a vehicle before buying a semester permit.")
             return None, None, None
 
-        try:
-            sd = date.fromisoformat(se.get().strip())
-            ed = date.fromisoformat(ee.get().strip())
-        except ValueError:
-            messagebox.showerror("Date Error", "Use YYYY-MM-DD format.")
-            return None, None, None
-        if ed <= sd:
-            messagebox.showerror("Date Error", "End date must be after start date.")
-            return None, None, None
-        if sd < date.today():
-            messagebox.showerror("Date Error", "Start date cannot be in the past.")
+        sd = selected_dates["start"]
+        ed = selected_dates["end"]
+        if not sd or not ed:
+            messagebox.showerror("Semester Error", "Please select a valid semester.")
             return None, None, None
 
         if not app.db.user_owns_vehicle(app.current_user["id"], plate):
@@ -257,39 +296,8 @@ def build_semester_permit_screen(app):
                            state="disabled", command=manual_verify)
     verify_btn.grid(row=8, column=0, columnspan=3, pady=(4, 4))
 
-    tk.Label(outer, text="My Semester Permits",
-             font=("Arial", 13, "bold")).grid(row=9, column=0, columnspan=3, pady=(20, 6))
-
-    cols = ("id", "plate", "start", "end", "amount", "status", "purchased")
-    tree = ttk.Treeview(outer, columns=cols, show="headings", height=6)
-    heads = {"id": "ID", "plate": "Plate", "start": "Start", "end": "End",
-             "amount": "Amount", "status": "Status", "purchased": "Purchased"}
-    widths = {"id": 50, "plate": 100, "start": 100, "end": 100,
-              "amount": 80, "status": 80, "purchased": 140}
-    for c in cols:
-        tree.heading(c, text=heads[c])
-        tree.column(c, width=widths[c], anchor="center")
-
-    sb = ttk.Scrollbar(outer, orient="vertical", command=tree.yview)
-    tree.configure(yscrollcommand=sb.set)
-    tree.grid(row=10, column=0, columnspan=2, pady=4, sticky="ew")
-    sb.grid(row=10, column=2, sticky="ns")
-
-    def load_permits():
-        for item in tree.get_children():
-            tree.delete(item)
-        try:
-            rows = app.db.fetch_semester_permits_for_user(app.current_user["id"])
-            if not rows:
-                tree.insert("", "end", values=("", "No permits found.", "", "", "", "", ""))
-                return
-            today_ = date.today()
-            for pid, plate, start, end, amount, created in rows:
-                status = "Active" if date.fromisoformat(str(start)) <= today_ <= date.fromisoformat(str(end)) else "Expired"
-                tree.insert("", "end", values=(pid, plate, start, end, f"${float(amount):.2f}", status, str(created)[:16]))
-        except Exception as e:
-            messagebox.showerror("Error", str(e))
+    back_btn = tk.Button(outer, text="← Back", command=app.show_buy_permit_choice)
+    back_btn.grid(row=9, column=0, columnspan=3, pady=(20, 0))
 
     load_vehicles()
     refresh_banner()
-    load_permits()

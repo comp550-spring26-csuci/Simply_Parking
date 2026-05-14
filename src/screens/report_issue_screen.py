@@ -77,7 +77,6 @@ def build_report_issue_screen(app):
                 username=app.current_user["username"],
             )
 
-            # optional, if you added notifications
             if hasattr(app.db, "create_notification"):
                 app.db.create_notification(
                     title="New Issue Reported",
@@ -85,6 +84,9 @@ def build_report_issue_screen(app):
                     notification_type="issue",
                     user_id=None,
                 )
+
+            if hasattr(app, "refresh_notification_badge"):
+                app.refresh_notification_badge()
 
             messagebox.showinfo("Success", "Issue reported successfully.")
             app.show_report_issue()

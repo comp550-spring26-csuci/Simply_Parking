@@ -30,7 +30,13 @@ def build_notifications_screen(app):
     def shorten(t,n=45): t=str(t); return t if len(t)<=n else t[:n-3]+"..."
     def refresh():
         for i in tree.get_children(): tree.delete(i)
-        uid = app.current_user["id"] if app.current_user else None
+        role = app.current_user.get("role") if app.current_user else None
+
+        if role in {"admin", "support_agent"}:
+            uid = None
+        else:
+            uid = app.current_user["id"] if app.current_user else None
+
         for row in app.db.fetch_notifications(user_id=uid):
             nid,_,title,msg,ntype,is_read,created_at = row
             tree.insert("",tk.END,values=(nid,shorten(title,20),shorten(msg,45),

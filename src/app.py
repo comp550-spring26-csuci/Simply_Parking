@@ -18,10 +18,13 @@ from screens.manage_issues_screen import build_manage_issues_screen
 from screens.vehicles_screen import build_my_vehicle_screen, build_register_vehicle_screen
 from screens.daily_permit_screen import build_buy_daily_permit_screen, build_my_daily_permit_screen
 from screens.semester_permit_screen import build_semester_permit_screen
+from screens.buy_permit_choice_screen import build_buy_permit_choice_screen
+from screens.my_permits_screen import build_my_permits_screen
 from screens.payg_screen import build_current_session_screen, build_pay_exit_screen
 from screens.guest_screen import build_guest_session_lookup_screen
 from screens.payment_history_screen import build_payment_history_screen
 from screens.notifications_screen import build_notifications_screen
+from screens.register_account_screen import build_register_account_screen
 
 
 class PlateApp:
@@ -96,19 +99,40 @@ class PlateApp:
     def show_buy_daily_permit(self):  self.clear_content(); build_buy_daily_permit_screen(self)
     def show_my_daily_permit(self):   self.clear_content(); build_my_daily_permit_screen(self)
     def show_semester_permit(self):   self.clear_content(); build_semester_permit_screen(self)
+    def show_buy_permit_choice(self): self.clear_content(); build_buy_permit_choice_screen(self)
+    def show_my_permits(self):        self.clear_content(); build_my_permits_screen(self)
     def show_current_session(self):   self.clear_content(); build_current_session_screen(self)
     def show_pay_exit(self):          self.clear_content(); build_pay_exit_screen(self)
     def show_guest_session_lookup(self): self.clear_content(); build_guest_session_lookup_screen(self)
+    def show_register_account(self):
+        if self.current_user and self.current_user.get("role") == "guest":
+            self.clear_content(); build_register_account_screen(self)
+        else:
+            self.clear_main(); build_register_account_screen(self)
     def show_payment_history(self):   self.clear_content(); build_payment_history_screen(self)
     def show_notifications(self):     self.clear_content(); build_notifications_screen(self)
 
     # ── notification badge + polling ──────────────────────────────────────────
     def refresh_notification_badge(self):
-        if not self.current_user: return
-        try:   unread = self.db.fetch_unread_count(user_id=self.current_user["id"])
-        except: unread = 0
+        if not self.current_user:
+            return
+
+        try:
+            role = self.current_user.get("role")
+
+            if role in {"admin", "support_agent"}:
+                unread = self.db.fetch_unread_count(user_id=None)
+            else:
+                unread = self.db.fetch_unread_count(user_id=self.current_user["id"])
+
+        except Exception:
+            unread = 0
+
         if self.notifications_button:
-            self.notifications_button.config(text=f"Notifications ({unread})" if unread else "Notifications")
+            if unread > 0:
+                self.notifications_button.config(text=f"Notifications ({unread})")
+            else:
+                self.notifications_button.config(text="Notifications")
 
     def start_notification_polling(self):
         if not self.current_user: return
@@ -134,7 +158,7 @@ class PlateApp:
                 self.last_seen_notification_id, user_id=self.current_user["id"])
             for row in rows:
                 nid,_,title,message,*_ = row
-                self.notifier.alert(title=title,message=message,popup=False,desktop=False)
+                self.notifier.alert(title=title, message=message, popup=True, desktop=True)
                 if nid > self.last_seen_notification_id:
                     self.last_seen_notification_id = nid
             self.refresh_notification_badge()

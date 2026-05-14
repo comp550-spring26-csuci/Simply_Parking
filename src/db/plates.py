@@ -1,6 +1,7 @@
 from datetime import datetime
 from mysql.connector import Error
 from db.parking_sessions import create_session_if_not_active
+from db.parking_sessions import close_session
 from db.logs import add_log
 
 def now_str():
@@ -15,7 +16,12 @@ def insert_plate(conn, plate, source_file, actor_user_id=None, actor_username=No
         cur.execute("INSERT INTO plates (plate,source_file,timestamp) VALUES (%s,%s,%s)",
                     (plate, source_file or "", now_str()))
         conn.commit()
-        create_session_if_not_active(conn, plate)
+        session = create_session_if_not_active(conn, plate)
+
+        if not session:
+            close_session(conn, plate, 0.0)
+        
+            
         add_log(conn, "plate_entry_added", f"Plate={plate}", user_id=actor_user_id, username=actor_username)
         return True
     except Error as e:

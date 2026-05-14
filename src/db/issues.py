@@ -5,7 +5,7 @@ def now_str():
     return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
 def create_issue(conn, user_id, username, location, category, priority, description):
-    if not all([user_id, username, location, category, priority, description]):
+    if not username or not username.strip() or not location or not category or not priority or not description:
         return False
     cur = conn.cursor()
     try:
@@ -31,9 +31,14 @@ def fetch_issues(conn, limit=50):
 def fetch_issues_by_user(conn, user_id, limit=50):
     cur = conn.cursor()
     try:
-        cur.execute(
-            "SELECT id,reported_by_user_id,reported_by_username,location,category,priority,status,description,created_at FROM issues WHERE reported_by_user_id=%s ORDER BY created_at DESC LIMIT %s",
-            (user_id, limit))
+        if user_id is None:
+            cur.execute(
+                "SELECT id,reported_by_user_id,reported_by_username,location,category,priority,status,description,created_at FROM issues WHERE reported_by_username=%s ORDER BY created_at DESC LIMIT %s",
+                ("guest", limit))
+        else:
+            cur.execute(
+                "SELECT id,reported_by_user_id,reported_by_username,location,category,priority,status,description,created_at FROM issues WHERE reported_by_user_id=%s ORDER BY created_at DESC LIMIT %s",
+                (user_id, limit))
         return cur.fetchall()
     finally:
         cur.close()
