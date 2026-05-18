@@ -1,24 +1,26 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
 
+#from Simply_Parking import app
+
 def build_report_issue_screen(app):
     app.clear_content()
-
-    top = tk.Frame(app.content_frame, padx=10, pady=10)
+    # helps match the color scheme of other screens, 
+    top = tk.Frame(app.content_frame, bg=app.COLORS["bg"], padx=10, pady=10)
     top.pack(fill="x")
+    # aded bg and fg to match color scheme
+    tk.Label(top, text="Report Parking Issue", font=("Arial", 16, "bold"), bg=app.COLORS["bg"], fg=app.COLORS["text"]).pack(side="left")
+    tk.Button(top, text="Refresh", command=app.show_report_issue, bg=app.COLORS["bg"], fg=app.COLORS["text"]).pack(side="right")
 
-    tk.Label(top, text="Report Parking Issue", font=("Arial", 16, "bold")).pack(side="left")
-    tk.Button(top, text="Refresh", command=app.show_report_issue).pack(side="right")
-
-    form_frame = tk.Frame(app.content_frame, padx=20, pady=10)
+    form_frame = tk.Frame(app.content_frame, bg=app.COLORS["bg"], padx=20, pady=10)
     form_frame.pack(fill="x", anchor="nw")
-
-    tk.Label(form_frame, text="Location").grid(row=0, column=0, sticky="e", pady=5)
+    # added bg and fg to match color scheme
+    tk.Label(form_frame, text="Location", bg=app.COLORS["bg"], fg=app.COLORS["text"]).grid(row=0, column=0, sticky="e", pady=5)
     location_entry = tk.Entry(form_frame, width=35)
     location_entry.grid(row=0, column=1, padx=5, pady=5)
     location_entry.insert(0, "Parking Structure A")
-
-    tk.Label(form_frame, text="Category").grid(row=1, column=0, sticky="e", pady=5)
+    # added bg and fg to match color scheme
+    tk.Label(form_frame, text="Category", bg=app.COLORS["bg"], fg=app.COLORS["text"]).grid(row=1, column=0, sticky="e", pady=5)
     category_combo = ttk.Combobox(
         form_frame,
         width=32,
@@ -36,7 +38,12 @@ def build_report_issue_screen(app):
     category_combo.grid(row=1, column=1, padx=5, pady=5)
     category_combo.set("Broken Gate")
 
-    tk.Label(form_frame, text="Priority").grid(row=2, column=0, sticky="e", pady=5)
+    tk.Label(
+        form_frame,
+        text="Priority",
+        bg=app.COLORS["bg"],
+        fg=app.COLORS["text"]
+    ).grid(row=2, column=0, sticky="e", pady=5)
     priority_combo = ttk.Combobox(
         form_frame,
         width=32,
@@ -46,9 +53,26 @@ def build_report_issue_screen(app):
     priority_combo.grid(row=2, column=1, padx=5, pady=5)
     priority_combo.set("Medium")
 
-    tk.Label(form_frame, text="Description").grid(row=3, column=0, sticky="ne", pady=5)
-    description_text = tk.Text(form_frame, width=45, height=5)
+    tk.Label(
+        form_frame,
+        text="Description",
+        bg=app.COLORS["bg"],
+        fg=app.COLORS["text"]
+    ).grid(row=3, column=0, sticky="ne", pady=5)
+
+    description_text = tk.Text(
+        form_frame,
+        width=45,
+        height=5,
+        bg="white",
+        fg=app.COLORS["text"],
+        insertbackground=app.COLORS["text"],
+        relief="solid",
+        bd=1
+    )
     description_text.grid(row=3, column=1, padx=5, pady=5)
+
+
 
     def submit_issue():
         location = location_entry.get().strip()
@@ -95,10 +119,10 @@ def build_report_issue_screen(app):
         row=4, column=0, columnspan=2, pady=10
     )
 
-    filter_frame = tk.Frame(app.content_frame, padx=10, pady=5)
+    filter_frame = tk.Frame(app.content_frame, bg=app.COLORS["bg"], padx=10, pady=5)
     filter_frame.pack(fill="x")
 
-    tk.Label(filter_frame, text="View").pack(side="left")
+    tk.Label(filter_frame, text="View", bg=app.COLORS["bg"], fg=app.COLORS["text"]).pack(side="left")
 
     role = app.current_user["role"]
     can_view_all = role in {"admin", "support_agent"}
@@ -114,7 +138,7 @@ def build_report_issue_screen(app):
     view_combo.pack(side="left", padx=8)
     view_combo.set("My Issues")
 
-    table_frame = tk.Frame(app.content_frame, padx=10, pady=10)
+    table_frame = tk.Frame(app.content_frame, bg=app.COLORS["bg"], padx=10, pady=10)
     table_frame.pack(fill="both", expand=True)
 
     columns = ("id", "reported_by", "location", "category", "priority", "status", "description", "created_at")
