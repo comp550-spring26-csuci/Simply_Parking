@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Payment Successful — Simply Parking</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: #f6f9fc;
+            color: #32325d;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 7px 14px 0 rgba(60, 66, 87, 0.10),
+                        0 3px 6px 0 rgba(0, 0, 0, 0.07);
+            padding: 56px 48px 40px;
+            max-width: 480px;
+            width: 100%;
+            text-align: center;
+            animation: slideUp 0.4s ease-out;
+        }
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+        .check-circle {
+            width: 72px;
+            height: 72px;
+            background: #e3f9e9;
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 28px;
+            animation: pop 0.5s ease-out 0.2s both;
+        }
+        @keyframes pop {
+            0%   { transform: scale(0); }
+            60%  { transform: scale(1.15); }
+            100% { transform: scale(1); }
+        }
+        .check-circle svg {
+            width: 36px;
+            height: 36px;
+            color: #1ab46d;
+        }
+        .badge {
+            display: inline-block;
+            background: #635bff;
+            color: white;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            padding: 4px 10px;
+            border-radius: 4px;
+            margin-bottom: 16px;
+        }
+        h1 {
+            font-size: 24px;
+            font-weight: 600;
+            margin-bottom: 12px;
+            color: #1a1f36;
+        }
+        .subtitle {
+            color: #525f7f;
+            font-size: 15px;
+            line-height: 1.6;
+            margin-bottom: 6px;
+        }
+        .return-msg {
+            color: #6b7c93;
+            font-size: 14px;
+            margin-top: 4px;
+        }
+        .session-info {
+            background: #f6f9fc;
+            border: 1px solid #e3e8ee;
+            border-radius: 8px;
+            padding: 14px 16px;
+            margin-top: 28px;
+            font-size: 12px;
+            color: #6b7c93;
+            word-break: break-all;
+            font-family: "SF Mono", Monaco, Consolas, monospace;
+            text-align: left;
+        }
+        .session-info-label {
+            color: #8898aa;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+        }
+        .footer {
+            margin-top: 32px;
+            padding-top: 24px;
+            border-top: 1px solid #e3e8ee;
+            font-size: 12px;
+            color: #8898aa;
+        }
+        .footer a {
+            color: #635bff;
+            text-decoration: none;
+            font-weight: 500;
+        }
+        .footer a:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <div class="check-circle">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+        </div>
+        <div class="badge" id="payment-badge">Simply Parking</div>
+        <h1 id="title">Thanks for your order</h1>
+        <p class="subtitle" id="subtitle">Your payment was successful.</p>
+        <p class="return-msg">You can close this window and return to the Simply Parking app.</p>
+        <div class="session-info" id="session-box" style="display:none;">
+            <div class="session-info-label">Payment Session</div>
+            <div id="session-id"></div>
+        </div>
+        <div class="footer">
+            Powered by <a href="https://stripe.com">stripe</a>
+        </div>
+    </div>
+    <script>
+        const params = new URLSearchParams(window.location.search);
+        const sessionId = params.get('session_id');
+        const paymentType = (params.get('type') || '').toLowerCase();
+
+        // Customize the page based on what was purchased
+        const presets = {
+            'daily': {
+                badge: 'Daily Permit',
+                title: 'Daily permit purchased',
+                subtitle: 'Your daily parking permit is now active for today.',
+            },
+            'semester': {
+                badge: 'Semester Permit',
+                title: 'Semester permit purchased',
+                subtitle: 'Your semester parking permit is now active.',
+            },
+            'payg': {
+                badge: 'Exit Payment',
+                title: 'Exit payment received',
+                subtitle: 'Thanks — drive safely!',
+            },
+        };
+
+        const preset = presets[paymentType];
+        if (preset) {
+            document.getElementById('payment-badge').textContent = preset.badge;
+            document.getElementById('title').textContent = preset.title;
+            document.getElementById('subtitle').textContent = preset.subtitle;
+        }
+
+        if (sessionId) {
+            document.getElementById('session-id').textContent = sessionId;
+            document.getElementById('session-box').style.display = 'block';
+        }
+    </script>
+</body>
+</html>

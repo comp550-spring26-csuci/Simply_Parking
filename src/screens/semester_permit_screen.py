@@ -206,7 +206,7 @@ def build_semester_permit_screen(app):
                     return
             except Exception as e:
                 set_status(f"Polling issue. You can still click Verify after paying. {e}", "orange")
-        set_status("Auto-check timed out. Click 'I've Paid — Verify Now'.", "orange")
+        set_status("Auto-check timed out. Click 'I've Paid — Verify Now' below.", "orange")
         enable()
 
     def _start_checkout(kind):
@@ -251,7 +251,8 @@ def build_semester_permit_screen(app):
     qr_btn = tk.Button(bf, text="Pay with QR Code", width=20, command=lambda: _start_checkout("qr"))
     qr_btn.pack(side="left", padx=6)
 
-    verify_btn = tk.Button(outer, text="I've Paid — Verify Now",
+    verify_btn = tk.Button(outer,
+                           text="I've Paid — Verify Now",
                            width=30, bg="#1a7a1a", fg="white",
                            font=("Arial", 11, "bold"),
                            state="disabled", command=manual_verify)

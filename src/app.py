@@ -1,5 +1,7 @@
 import tkinter as tk
 from tkinter import messagebox
+import local_server
+import stripe_service
 
 from notifier import Notifier
 from screens.notifications_screen import build_notifications_screen
@@ -292,6 +294,10 @@ class PlateApp:
         self.root.destroy()
 
 if __name__ == "__main__":
+    # start the small HTTP server that serves the success/cancel pages
+    local_server.start_server_in_background()
+    # warn loudly if a live Stripe key is being used by mistake
+    stripe_service.assert_test_mode()
     print("Starting GUI...")
     root = tk.Tk()
     root.lift()

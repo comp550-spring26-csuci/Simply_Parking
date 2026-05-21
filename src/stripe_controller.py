@@ -1,3 +1,4 @@
+import traceback
 import stripe_service
 
 
@@ -17,6 +18,28 @@ def _require_paid_session(session_id, expected_type):
     return info, True, "OK"
 
 
+def _log_db_failure(where, payment_intent, exc=None):
+    """Print full diagnostic info to terminal so the real cause is visible."""
+    print()
+    print("=" * 70)
+    print(f"DB WRITE FAILED in {where}")
+    print(f"  Stripe payment_intent: {payment_intent}")
+    if exc is not None:
+        print(f"  Exception type: {type(exc).__name__}")
+        print(f"  Exception: {exc!r}")
+        if hasattr(exc, "errno"):
+            print(f"  MySQL errno: {exc.errno}")
+        if hasattr(exc, "msg"):
+            print(f"  MySQL msg: {exc.msg}")
+        print("Full traceback:")
+        traceback.print_exc()
+    else:
+        print("  (no exception - the DB function returned False without raising)")
+        print("  Check the terminal for 'Create ... failed:' lines printed by the db module.")
+    print("=" * 70)
+    print()
+
+
 def activate_daily_permit_after_payment(app, session_id):
     info, ok, msg = _require_paid_session(session_id, "daily_permit")
     if not ok:
@@ -31,15 +54,27 @@ def activate_daily_permit_after_payment(app, session_id):
     if app.db.daily_payment_exists(payment_intent):
         return True, f"Daily permit for {plate} was already activated."
 
-    created = app.db.create_daily_permit(
-        user_id=user_id,
-        plate=plate,
-        amount=amount,
-        stripe_session_id=info["id"],
-        stripe_payment_intent_id=payment_intent,
-    )
+    try:
+        created = app.db.create_daily_permit(
+            user_id=user_id,
+            plate=plate,
+            amount=amount,
+            stripe_session_id=info["id"],
+            stripe_payment_intent_id=payment_intent,
+        )
+    except Exception as e:
+        _log_db_failure("create_daily_permit", payment_intent, e)
+        return False, f"Payment succeeded, but DB write failed: {type(e).__name__}: {e}"
+
     if not created:
-        return False, "Payment succeeded, but permit could not be saved. It may already exist for today."
+        _log_db_failure("create_daily_permit", payment_intent)
+        # Check what's actually in the DB so we can give a real message.
+        if app.db.daily_payment_exists(payment_intent):
+            return True, f"Daily permit for {plate} was already activated."
+        return False, ("Payment succeeded, but the database refused the insert. "
+                       "Check the terminal for the real MySQL error (look for "
+                       "'Create daily permit failed:'). Most common cause: "
+                       "missing default value on a column.")
 
     username = app.current_user["username"] if app.current_user else None
     app.db.add_log("stripe_daily_permit_paid", f"Plate={plate},amount=${amount:.2f},pi={payment_intent}",
@@ -69,17 +104,34 @@ def activate_semester_permit_after_payment(app, session_id):
     if not app.db.user_owns_vehicle(user_id, plate):
         return False, "Payment succeeded, but this plate is not registered to the user. Contact support."
 
-    created = app.db.create_semester_permit(
-        user_id=user_id,
-        plate=plate,
-        start_date=start_date,
-        end_date=end_date,
-        amount=amount,
-        stripe_session_id=info["id"],
-        stripe_payment_intent_id=payment_intent,
-    )
+    try:
+        created = app.db.create_semester_permit(
+            user_id=user_id,
+            plate=plate,
+            start_date=start_date,
+            end_date=end_date,
+            amount=amount,
+            stripe_session_id=info["id"],
+            stripe_payment_intent_id=payment_intent,
+        )
+    except Exception as e:
+        _log_db_failure("create_semester_permit", payment_intent, e)
+        return False, f"Payment succeeded, but DB write failed: {type(e).__name__}: {e}"
+
     if not created:
-        return False, "Payment succeeded, but semester permit could not be saved. Check for an overlapping active permit."
+        _log_db_failure("create_semester_permit", payment_intent)
+        if app.db.semester_payment_exists(payment_intent):
+            return True, f"Semester permit for {plate} was already activated."
+        # Look for the actual cause and give a specific message
+        if app.db.has_active_semester_permit_for_plate(user_id, plate):
+            return False, (f"Payment succeeded, but {plate} already has an active "
+                           f"semester permit. Contact support to refund.")
+        return False, ("Payment succeeded, but the database refused the insert. "
+                       "Check the terminal for the real MySQL error (look for "
+                       "'Create semester permit failed:'). Most common cause: "
+                       "missing default value on the 'status' column - run: "
+                       "ALTER TABLE semester_permits MODIFY COLUMN status "
+                       "VARCHAR(32) NOT NULL DEFAULT 'active';")
 
     username = app.current_user["username"] if app.current_user else None
     app.db.add_log("stripe_semester_permit_paid", f"Plate={plate},amount=${amount:.2f},pi={payment_intent}",
@@ -114,17 +166,26 @@ def finalize_payg_after_payment(app, session_id):
     if active_session_id != session_db_id:
         return False, "Payment succeeded, but the parking session changed. Contact support."
 
-    created = app.db.create_payg_payment(
-        user_id=user_id,
-        plate=plate,
-        duration_minutes=minutes,
-        amount=amount,
-        parking_session_id=session_db_id,
-        stripe_session_id=info["id"],
-        stripe_payment_intent_id=payment_intent,
-    )
+    try:
+        created = app.db.create_payg_payment(
+            user_id=user_id,
+            plate=plate,
+            duration_minutes=minutes,
+            amount=amount,
+            parking_session_id=session_db_id,
+            stripe_session_id=info["id"],
+            stripe_payment_intent_id=payment_intent,
+        )
+    except Exception as e:
+        _log_db_failure("create_payg_payment", payment_intent, e)
+        return False, f"Payment succeeded, but DB write failed: {type(e).__name__}: {e}"
+
     if not created:
-        return False, "Payment succeeded, but PAYG payment could not be saved."
+        _log_db_failure("create_payg_payment", payment_intent)
+        if app.db.payg_payment_exists(payment_intent):
+            return True, "Exit payment was already processed. Drive safely!"
+        return False, ("Payment succeeded, but PAYG payment could not be saved. "
+                       "Check the terminal for the real MySQL error.")
 
     if not app.db.close_session(session_db_id, amount):
         return False, "Payment saved, but the parking session could not be closed."

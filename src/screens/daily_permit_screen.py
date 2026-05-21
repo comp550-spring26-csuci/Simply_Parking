@@ -3,6 +3,7 @@ from tkinter import ttk, messagebox
 import webbrowser
 import threading
 import time
+import traceback
 import stripe_service
 import stripe_controller
 from screens.qr_payment_screen import open_qr_payment
@@ -16,6 +17,29 @@ def _entry(parent):
     return tk.Entry(parent, width=30, bg="#1f1f1f", fg="white", insertbackground="white",
                     relief="solid", highlightthickness=1, highlightbackground="#777",
                     highlightcolor="#aaa")
+
+
+def _log_exception(where, sid, e):
+    """Print full exception details to terminal for debugging."""
+    print()
+    print("=" * 70)
+    print(f"STRIPE ERROR in {where}")
+    print(f"  Session ID  : {sid!r}")
+    print(f"  Exception   : {type(e).__module__}.{type(e).__name__}")
+    print(f"  Message     : {e!r}")
+    print(f"  String form : {str(e)!r}")
+    if hasattr(e, "code"):
+        print(f"  .code       : {e.code!r}")
+    if hasattr(e, "http_status"):
+        print(f"  .http_status: {e.http_status!r}")
+    if hasattr(e, "user_message"):
+        print(f"  .user_message: {e.user_message!r}")
+    if hasattr(e, "json_body"):
+        print(f"  .json_body  : {e.json_body!r}")
+    print("Full traceback:")
+    traceback.print_exc()
+    print("=" * 70)
+    print()
 
 
 def build_buy_daily_permit_screen(app):
@@ -40,7 +64,7 @@ def build_buy_daily_permit_screen(app):
     tk.Label(f, text=f"Price: ${PRICE:.2f}  (valid today only)").grid(
         row=4, column=0, columnspan=3, pady=6)
 
-    sl = tk.Label(f, text="", fg="blue", justify="left")
+    sl = tk.Label(f, text="", fg="blue", justify="left", wraplength=520)
     sl.grid(row=5, column=0, columnspan=3, pady=4)
 
     state = {"session_id": None, "done": False}
@@ -117,7 +141,8 @@ def build_buy_daily_permit_screen(app):
         try:
             ok, msg = stripe_controller.activate_daily_permit_after_payment(app, sid)
         except Exception as e:
-            ok, msg = False, str(e)
+            _log_exception("activate_daily_permit_after_payment", sid, e)
+            ok, msg = False, f"{type(e).__name__}: {e}"
 
         set_status(msg, "green" if ok else "red")
         if ok:
@@ -141,8 +166,11 @@ def build_buy_daily_permit_screen(app):
         threading.Thread(target=lambda: _check_once(sid), daemon=True).start()
 
     def _check_once(sid):
+        print(f"\n[manual_verify] Checking session {sid!r}")
         try:
             info = stripe_service.get_checkout_status(sid)
+            print(f"[manual_verify] Stripe returned: payment_status={info.get('payment_status')!r}, "
+                  f"status={info.get('status')!r}, payment_intent={info.get('payment_intent')!r}")
             if info["payment_status"] == "paid":
                 _activate_once(sid)
             elif info["status"] == "expired":
@@ -151,17 +179,23 @@ def build_buy_daily_permit_screen(app):
             else:
                 set_status(f"Not paid yet. Stripe status: {info['payment_status']}.", "orange")
         except Exception as e:
-            set_status(f"Check failed: {e}", "red")
+            _log_exception("manual_verify -> get_checkout_status", sid, e)
+            set_status(f"Check failed: {type(e).__name__}: {e}\n"
+                       f"(Full details printed to terminal)", "red")
 
     def _poll(sid):
-        for _ in range(POLL_ATTEMPTS):
+        consecutive_errors = 0
+        last_error_type = None
+        for attempt in range(POLL_ATTEMPTS):
             time.sleep(POLL_SECONDS)
             with lock:
                 if state["done"]:
                     return
             try:
                 info = stripe_service.get_checkout_status(sid)
+                consecutive_errors = 0  # reset on success
                 if info["payment_status"] == "paid":
+                    print(f"[_poll] Payment detected as paid for {sid}")
                     _activate_once(sid)
                     return
                 if info["status"] == "expired":
@@ -169,8 +203,20 @@ def build_buy_daily_permit_screen(app):
                     enable()
                     return
             except Exception as e:
-                set_status(f"Polling issue. You can still click Verify after paying. {e}", "orange")
-        set_status("Auto-check timed out. Click 'I've Paid — Verify Now'.", "orange")
+                consecutive_errors += 1
+                last_error_type = type(e).__name__
+                # only log full details once per error type to avoid spamming
+                if consecutive_errors == 1:
+                    _log_exception(f"_poll (attempt {attempt+1})", sid, e)
+                set_status(f"Polling: {type(e).__name__} (#{consecutive_errors}). "
+                           f"Click 'I've Paid — Verify Now' to retry manually.", "orange")
+                # if we hit 5 errors in a row, stop auto-polling so the user can verify manually
+                if consecutive_errors >= 5:
+                    set_status(f"Auto-check stopped after 5 {last_error_type} errors. "
+                               f"Click 'I've Paid — Verify Now' below.", "red")
+                    enable()
+                    return
+        set_status("Auto-check timed out. Click 'I've Paid — Verify Now' below.", "orange")
         enable()
 
     def _start_checkout(kind):
@@ -188,8 +234,11 @@ def build_buy_daily_permit_screen(app):
                     user_id=app.current_user["id"], plate=plate)
                 if not url.startswith("https://checkout.stripe.com/"):
                     raise ValueError(f"Invalid Stripe Checkout URL: {url}")
+                print(f"\n[_start_checkout] Created session: {sid}")
+                print(f"[_start_checkout] Checkout URL: {url}")
             except Exception as e:
-                set_status(f"Stripe Error: {e}", "red")
+                _log_exception("create_daily_permit_checkout", "<none yet>", e)
+                set_status(f"Stripe Error: {type(e).__name__}: {e}", "red")
                 enable()
                 return
 
@@ -214,7 +263,8 @@ def build_buy_daily_permit_screen(app):
     qr_btn = tk.Button(bf, text="Pay with QR Code", width=20, command=lambda: _start_checkout("qr"))
     qr_btn.pack(side="left", padx=6)
 
-    verify_btn = tk.Button(f, text="I've Paid — Verify Now",
+    verify_btn = tk.Button(f,
+                           text="I've Paid — Verify Now",
                            width=30, bg="#1a7a1a", fg="white",
                            font=("Arial", 11, "bold"),
                            state="disabled", command=manual_verify)
