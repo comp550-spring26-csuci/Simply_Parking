@@ -6,8 +6,7 @@ from db.users import (seed_default_admin, create_user, authenticate_user,
 from db.plates import (insert_plate, fetch_all, fetch_latest_plate_session,
     update_plate_entry, delete_plate_entry)
 from db.logs import add_log, fetch_logs
-from db.vehicles import (register_vehicle, fetch_user_vehicles, delete_vehicle,
-    user_owns_vehicle, vehicle_has_active_permit)
+from db.vehicles import register_vehicle, fetch_user_vehicles, delete_vehicle
 from db.issues import (create_issue, fetch_issues, fetch_issues_by_user,
     update_issue_status, count_open_issues)
 from db.notifications import (create_notification, fetch_notifications,
@@ -15,16 +14,14 @@ from db.notifications import (create_notification, fetch_notifications,
     fetch_latest_notification_id, fetch_unread_notifications_after)
 from db.daily_permits import (create_daily_permit, fetch_daily_permits_for_user,
     fetch_today_daily_permits_for_user, fetch_all_daily_permits,
-    count_today_daily_permits, has_daily_permit_today, daily_payment_exists)
+    count_today_daily_permits)
 from db.parking_sessions import (create_session_if_not_active,
     fetch_active_session_by_plate, fetch_active_sessions, count_active_sessions,
     close_session, check_plate_access)
 from db.semester_permits import (create_semester_permit,
     fetch_semester_permits_for_user, fetch_active_semester_permits_for_user,
-    fetch_all_semester_permits, count_active_semester_permits,
-    has_active_semester_permit_for_plate, semester_payment_exists)
-from db.payg_payments import (create_payg_payment, fetch_payg_payments_for_user,
-    payg_payment_exists)
+    fetch_all_semester_permits, count_active_semester_permits)
+from db.payg_payments import create_payg_payment, fetch_payg_payments_for_user
 
 
 class DatabaseManager:
@@ -37,12 +34,8 @@ class DatabaseManager:
         seed_default_admin(self.conn)
         print("Database ready.")
 
-    def __enter__(self):
-        return self
-
-    def __exit__(self, *_):
-        self.close()
-        return False
+    def __enter__(self):  return self
+    def __exit__(self, *_): self.close(); return False
 
     # users
     def create_user(self, username, password, role, full_name=""):
@@ -81,10 +74,6 @@ class DatabaseManager:
         return register_vehicle(self.conn, user_id, plate, make, model, color)
     def fetch_user_vehicles(self, user_id):
         return fetch_user_vehicles(self.conn, user_id)
-    def user_owns_vehicle(self, user_id, plate):
-        return user_owns_vehicle(self.conn, user_id, plate)
-    def vehicle_has_active_permit(self, user_id, plate):
-        return vehicle_has_active_permit(self.conn, user_id, plate)
     def delete_vehicle(self, vehicle_id, user_id):
         return delete_vehicle(self.conn, vehicle_id, user_id)
 
@@ -117,14 +106,8 @@ class DatabaseManager:
         return fetch_unread_notifications_after(self.conn, last_seen_id, user_id)
 
     # daily permits
-    def create_daily_permit(self, user_id, plate, permit_date=None, amount=6.00,
-                            stripe_session_id=None, stripe_payment_intent_id=None):
-        return create_daily_permit(self.conn, user_id, plate, permit_date, amount,
-                                   stripe_session_id, stripe_payment_intent_id)
-    def daily_payment_exists(self, stripe_payment_intent_id):
-        return daily_payment_exists(self.conn, stripe_payment_intent_id)
-    def has_daily_permit_today(self, user_id, plate):
-        return has_daily_permit_today(self.conn, user_id, plate)
+    def create_daily_permit(self, user_id, plate, permit_date=None, amount=6.00):
+        return create_daily_permit(self.conn, user_id, plate, permit_date, amount)
     def fetch_daily_permits_for_user(self, user_id, limit=75):
         return fetch_daily_permits_for_user(self.conn, user_id, limit)
     def fetch_today_daily_permits_for_user(self, user_id):
@@ -140,7 +123,7 @@ class DatabaseManager:
     def fetch_active_session_by_plate(self, plate):
         return fetch_active_session_by_plate(self.conn, plate)
     def fetch_active_sessions(self):
-        return fetch_active_sessions(self.conn)
+        return fetch_active_sessions(self.conn)          # queries parking_sessions table ✓
     def count_active_sessions(self):
         return count_active_sessions(self.conn)
     def close_session(self, session_id, amount_due):
@@ -149,14 +132,8 @@ class DatabaseManager:
         return check_plate_access(self.conn, plate)
 
     # semester permits
-    def create_semester_permit(self, user_id, plate, start_date, end_date, amount=0.00,
-                               stripe_session_id=None, stripe_payment_intent_id=None):
-        return create_semester_permit(self.conn, user_id, plate, start_date, end_date,
-                                      amount, stripe_session_id, stripe_payment_intent_id)
-    def semester_payment_exists(self, stripe_payment_intent_id):
-        return semester_payment_exists(self.conn, stripe_payment_intent_id)
-    def has_active_semester_permit_for_plate(self, user_id, plate):
-        return has_active_semester_permit_for_plate(self.conn, user_id, plate)
+    def create_semester_permit(self, user_id, plate, start_date, end_date, amount=0.00):
+        return create_semester_permit(self.conn, user_id, plate, start_date, end_date, amount)
     def fetch_semester_permits_for_user(self, user_id):
         return fetch_semester_permits_for_user(self.conn, user_id)
     def fetch_active_semester_permits_for_user(self, user_id):
@@ -167,14 +144,8 @@ class DatabaseManager:
         return count_active_semester_permits(self.conn)
 
     # PAYG
-    def create_payg_payment(self, user_id, plate, duration_minutes, amount,
-                            parking_session_id=None, stripe_session_id=None,
-                            stripe_payment_intent_id=None):
-        return create_payg_payment(self.conn, user_id, plate, duration_minutes, amount,
-                                   parking_session_id, stripe_session_id,
-                                   stripe_payment_intent_id)
-    def payg_payment_exists(self, stripe_payment_intent_id):
-        return payg_payment_exists(self.conn, stripe_payment_intent_id)
+    def create_payg_payment(self, user_id, plate, duration_minutes, amount):
+        return create_payg_payment(self.conn, user_id, plate, duration_minutes, amount)
     def fetch_payg_payments_for_user(self, user_id, limit=75):
         return fetch_payg_payments_for_user(self.conn, user_id, limit)
 
