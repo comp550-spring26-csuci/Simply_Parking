@@ -1,7 +1,19 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
 
+#from Simply_Parking import app
 from utils.permissions import can_manage_users
+
+# adding shared styles and colors/ AXT
+BG = "#F7F7F7" 
+CARD_BG = "#FFFFFF"
+PRIMARY = "#C8102E"
+PRIMARY_DARK = "#A00D25"
+TEXT = "#1F1F1F"
+MUTED = "#6B7280"
+BORDER = "#D9D9D9"
+
+
 
 def build_manage_users_screen(app):
     app.clear_content()
@@ -10,27 +22,60 @@ def build_manage_users_screen(app):
         messagebox.showerror("Access Denied", "You do not have permission to manage users.")
         return
 
-    top = tk.Frame(app.content_frame, padx=10, pady=10)
+    app.content_frame.configure(bg=CARD_BG) # changin framand BG
+
+    style = ttk.Style(app.root)
+    style.theme_use("clam")
+
+    style.configure(
+        "Treeview",
+        background="white",
+        foreground=TEXT,
+        fieldbackground="white",
+        rowheight=28,
+        font=("Arial", 11)
+    )
+
+    style.configure(
+        "Treeview.Heading",
+        background=PRIMARY,
+        foreground="white",
+        font=("Arial", 11, "bold")
+    )
+
+    style.map(
+        "Treeview",
+        background=[("selected", "#FDECEF")],
+        foreground=[("selected", TEXT)]
+    )   
+
+    top = tk.Frame(app.content_frame, bg=CARD_BG, padx=20, pady=15)
     top.pack(fill="x")
 
-    tk.Label(top, text="Manage Users", font=("Arial", 16, "bold")).pack(side="left")
+    tk.Label(
+        top,
+        text="Manage Users",
+        font=("Arial", 20, "bold"),
+        bg=CARD_BG,
+        fg=PRIMARY
+    ).pack(side="left")
 
-    form = tk.Frame(app.content_frame, padx=10, pady=10)
+    form = tk.Frame(app.content_frame, bg=CARD_BG, padx=20, pady=10)
     form.pack(fill="x")
-
-    tk.Label(form, text="Full Name").grid(row=0, column=0, sticky="e", pady=4)
-    full_name_entry = tk.Entry(form, width=25)
+    # axt change in theme and add full name field
+    tk.Label(form, text="Full Name", bg=CARD_BG, fg=TEXT, font=("Arial", 12, "bold")).grid(row=0, column=0, sticky="e", pady=6)
+    full_name_entry = tk.Entry(form, width=28, bg="white", fg=TEXT, font=("Arial", 12), relief="solid", bd=1)#AXT white boxes
     full_name_entry.grid(row=0, column=1, pady=4, padx=5)
-
-    tk.Label(form, text="Username").grid(row=1, column=0, sticky="e", pady=4)
-    username_entry = tk.Entry(form, width=25)
+    # AXT change in theme and add full name field
+    tk.Label(form, text="Username", bg=CARD_BG, fg=TEXT, font=("Arial", 12, "bold")).grid(row=1, column=0, sticky="e", pady=6)
+    username_entry = tk.Entry(form, width=25, bg="white", fg=TEXT, font=("Arial", 12), relief="solid", bd=1)#AXT white boxes
     username_entry.grid(row=1, column=1, pady=4, padx=5)
-
-    tk.Label(form, text="Password").grid(row=2, column=0, sticky="e", pady=4)
-    password_entry = tk.Entry(form, width=25, show="*")
+    # AXT change in theme and add full name field
+    tk.Label(form, text="Password", bg=CARD_BG, fg=TEXT, font=("Arial", 12, "bold")).grid(row=2, column=0, sticky="e", pady=6)
+    password_entry = tk.Entry(form, width=25, bg="white", fg=TEXT, font=("Arial", 12), relief="solid", bd=1, show="*")#AXT white boxes
     password_entry.grid(row=2, column=1, pady=4, padx=5)
 
-    tk.Label(form, text="Role").grid(row=3, column=0, sticky="e", pady=4)
+    tk.Label(form, text="Role", bg=CARD_BG, fg=TEXT, font=("Arial", 12, "bold")).grid(row=3, column=0, sticky="e", pady=6)
     role_combo = ttk.Combobox(
         form,
         width=22,
@@ -78,12 +123,23 @@ def build_manage_users_screen(app):
             role_combo.set("user")
         else:
             messagebox.showerror("Error", "Could not create user")
-
-    tk.Button(form, text="Create User", command=create_user).grid(
-        row=4, column=0, columnspan=2, pady=10
+    # AXT create red button and add hover effect
+    create_btn = tk.Label(
+        form,
+        text="Create User",
+        bg=PRIMARY,
+        fg="white",
+        font=("Arial", 12, "bold"),
+        padx=25,
+        pady=8,
+        cursor="hand2"
     )
+    create_btn.grid(row=4, column=0, columnspan=2, pady=14)
+    create_btn.bind("<Button-1>", lambda e: create_user())
+    create_btn.bind("<Enter>", lambda e: create_btn.config(bg=PRIMARY_DARK))
+    create_btn.bind("<Leave>", lambda e: create_btn.config(bg=PRIMARY))
 
-    table_frame = tk.Frame(app.content_frame, padx=10, pady=10)
+    table_frame = tk.Frame(app.content_frame, bg=CARD_BG, padx=20, pady=10)
     table_frame.pack(fill="both", expand=True)
 
     columns = ("id", "username", "role", "full_name", "created_at")
@@ -104,7 +160,7 @@ def build_manage_users_screen(app):
     tree.configure(yscrollcommand=scrollbar.set)
     scrollbar.pack(side="right", fill="y")
 
-    actions = tk.Frame(app.content_frame, padx=10, pady=5)
+    actions = tk.Frame(app.content_frame, bg=CARD_BG, padx=20, pady=8)
     actions.pack(fill="x")
 
     def delete_selected_user():

@@ -11,13 +11,19 @@ def build_manage_issues_screen(app):
         messagebox.showerror("Access Denied", "You do not have permission to manage issues.")
         return
 
-    top = tk.Frame(app.content_frame, padx=10, pady=10)
+    top = tk.Frame(app.content_frame, bg=app.COLORS["bg"], padx=10, pady=10)
     top.pack(fill="x")
 
-    tk.Label(top, text="Manage Issues", font=("Arial", 16, "bold")).pack(side="left")
-    tk.Button(top, text="Refresh", command=app.show_manage_issues).pack(side="right")
-
-    table_frame = tk.Frame(app.content_frame, padx=10, pady=10)
+    tk.Label(
+        top,
+        text="Manage Issues",
+        font=("Arial", 16, "bold"),
+        bg=app.COLORS["bg"],
+        fg=app.COLORS["text"]
+    ).pack(side="left")
+    tk.Button(top, text="Refresh", command=app.show_manage_issues, bg=app.COLORS["bg"], fg=app.COLORS["text"]).pack(side="right")
+    # remove gray background from refresh button
+    table_frame = tk.Frame(app.content_frame, bg=app.COLORS["bg"], padx=10, pady=10)
     table_frame.pack(fill="both", expand=True)
 
     columns = ("id", "reported_by", "location", "category", "priority", "status", "description", "created_at")
@@ -52,14 +58,19 @@ def build_manage_issues_screen(app):
     tree.pack(side="left", fill="both", expand=True)
     scrollbar.pack(side="right", fill="y")
 
-    controls = tk.Frame(app.content_frame, padx=10, pady=10)
+    controls = tk.Frame(app.content_frame, bg=app.COLORS["bg"], padx=10, pady=10)
     controls.pack(fill="x")
 
-    tk.Label(controls, text="Selected Issue ID").grid(row=0, column=0, sticky="e", pady=4)
-    issue_id_label = tk.Label(controls, text="None", width=10, anchor="w")
+    tk.Label(
+        controls,
+        text="Selected Issue ID",
+        bg=app.COLORS["bg"],
+        fg=app.COLORS["text"]
+    ).grid(row=0, column=0, sticky="e", pady=4)
+    issue_id_label = tk.Label(controls, text="None", width=10, anchor="w", bg=app.COLORS["bg"], fg=app.COLORS["text"])# remove gray background
     issue_id_label.grid(row=0, column=1, sticky="w", padx=5)
-
-    tk.Label(controls, text="New Status").grid(row=0, column=2, sticky="e", pady=4)
+    # remove gray background from issue_id_label Axt.
+    tk.Label(controls, text="New Status", bg=app.COLORS["bg"], fg=app.COLORS["text"]).grid(row=0, column=2, sticky="e", pady=4)
     status_combo = ttk.Combobox(
         controls,
         width=20,

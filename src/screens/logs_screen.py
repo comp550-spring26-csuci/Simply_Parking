@@ -3,14 +3,14 @@ from tkinter import ttk, messagebox
 
 def build_logs_screen(app):
         app.clear_content()
-
-        top = tk.Frame(app.content_frame, padx=10, pady=10)
+        # bg color to match theme
+        top = tk.Frame(app.content_frame,bg=app.COLORS["bg"], padx=10, pady=10)
         top.pack(fill="x")
 
-        tk.Label(top, text="Logs & Reports", font=("Arial", 16, "bold")).pack(side="left")
-        tk.Button(top, text="Refresh", command=app.show_logs_reports).pack(side="right")
-
-        table_frame = tk.Frame(app.content_frame, padx=10, pady=10)
+        tk.Label(top, text="Logs & Reports", font=("Arial", 16, "bold"), bg=app.COLORS["bg"], fg=app.COLORS["text"]).pack(side="left")
+        tk.Button(top, text="Refresh", command=app.show_logs_reports, bg=app.COLORS["bg"], fg=app.COLORS["text"]).pack(side="right")
+        #bg color to match theme
+        table_frame = tk.Frame(app.content_frame, bg=app.COLORS["bg"], padx=10, pady=10)
         table_frame.pack(fill="both", expand=True)
 
         columns = ("id", "username", "event_type", "details", "created_at")
